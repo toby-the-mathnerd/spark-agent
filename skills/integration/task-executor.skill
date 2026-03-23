@@ -1,0 +1,195 @@
+# skill: task-executor
+# purpose: Execute tasks using RPOLES methodology
+# triggers: Task claimed, ready to begin work
+
+## Overview
+
+This is the master execution skill that orchestrates all RPOLES phases for any
+task type. It reads the task-type skill file (coding, debugging, etc.) and
+applies the appropriate RPOLES pattern.
+
+## Execution Flow
+
+### 1. Read Task and Context
+
+```bash
+# Read the task file
+TASK_FILE="$HOME/spark-tasks/tasks/active/task-NNN.md"
+cat "$TASK_FILE"
+
+# Read SOUL.md for identity
+cat ~/spark-agent/SOUL.md
+
+# Read relevant skill file
+TASK_TYPE=$(grep "**Type:**" "$TASK_FILE" | cut -d: -f2 | xargs)
+cat ~/spark-agent/skills/$TASK_TYPE/SKILL.md
+```
+
+### 2. Begin RPOLES Workflow
+
+```bash
+# Phase 1: REVIEW
+echo "=== PHASE 1: REVIEW ==="
+# - Understand requirements
+# - Identify ambiguities
+# - Document in task file
+
+# Phase 2: PLAN
+echo "=== PHASE 2: PLAN ==="
+# - Create implementation plan
+# - Define checkpoints
+# - Document in task file
+
+# Phase 3: OUTLINE (if applicable)
+echo "=== PHASE 3: OUTLINE ==="
+# - File-by-file plan
+# - Dependencies mapped
+
+# Phase 4: LOCATE
+echo "=== PHASE 4: LOCATE ==="
+# - Find related code
+# - Identify patterns
+# - Document dependencies
+
+# Phase 5: IMPLEMENT
+echo "=== PHASE 5: IMPLEMENT ==="
+# - Write code/infrastructure
+# - Commit after each phase
+# - Push immediately
+
+# Phase 6: TEST
+echo "=== PHASE 6: TEST ==="
+# - Create/update tests
+# - Validate coverage
+# - Fix failures
+
+# Phase 7: SHIP
+echo "=== PHASE 7: SHIP ==="
+# - Prepare PR
+# - Document results
+# - Move task to done/
+```
+
+### 3. Phase Transitions
+
+After each RPOLES phase:
+
+```bash
+# Update task file
+echo "- $(date +%Y-%m-%d\ %H:%M): Phase completed: [phase-name]" >> "$TASK_FILE"
+
+# Commit changes
+git -C "$HOME/spark-tasks" add "$TASK_FILE"
+git -C "$HOME/spark-tasks" commit -m "[Spark 2] Task $TASK_ID: [phase-name] complete"
+git -C "$HOME/spark-tasks" push
+
+# Log to agents/runs/
+echo '{"task_id":"task-NNN","session_id":"...","timestamp":"'$(date -Iseconds)'","model":"qwen3.5:122b-a10b","tool":"task-executor","phase":"[phase-name]","success":true}' >> "$HOME/spark-tasks/agents/runs/<session>.jsonl"
+```
+
+### 4. Blocked Handling
+
+If blocked during any phase:
+
+```bash
+# Move to blocked/
+spark-move-task $TASK_ID --to blocked --reason "Need input: [question]"
+
+# Add question to task file
+cat >> "$HOME/spark-tasks/tasks/blocked/task-NNN.md" << EOF
+
+## Blockers
+
+[Clear question for user]
+EOF
+
+# Commit and push
+git -C "$HOME/spark-tasks" add "tasks/blocked/task-NNN.md"
+git -C "$HOME/spark-tasks" commit -m "[Spark 2] Task $TASK_ID: blocked, awaiting input"
+git -C "$HOME/spark-tasks" push
+```
+
+### 5. Completion
+
+When task is complete:
+
+```bash
+# Fill in Result section
+cat >> "$TASK_FILE" << EOF
+
+## Result
+
+[Summary of what was built/changed]
+
+## Agent Log
+
+**Tokens in:** [count]
+**Tokens out:** [count]
+**Duration:** [seconds]s
+**Tool calls:** [count]
+**Success:** true
+EOF
+
+# Move to done/
+spark-move-task $TASK_ID --to done
+
+# Write session summary
+cat > "$HOME/spark-tasks/agents/sessions/<session>.json" << EOF
+{"session_id":"<session>","task_id":"task-$TASK_ID","model":"qwen3.5:122b-a10b","started":"...","ended":"...","total_tokens_in":[...],"total_tokens_out":[...],"total_duration_ms":[...],"tool_calls":[...],"success":true,"commits":[...],"summary":"[summary]"}
+EOF
+```
+
+## Integration with RPOLES Persona Skills
+
+When working on a task, you may call upon specific persona skills:
+
+| Phase | Developer | QA | Security | Performance |
+|-------|---..----|-...----|-----.---|-------.----|
+| Review | dev-review | qa-analyze | security-review | perf-analyze |
+| Plan | dev-plan | - | security-threat-model | - |
+| Outline | dev-outline | - | - | - |
+| Locate | dev-locate | - | - | - |
+| Implement | dev-implement | qa-generate-tests | security-hardening | perf-optimize |
+| Test | dev-test | qa-validate | security-scan | perf-validate |
+| Ship | dev-ship | qa-report | - | - |
+
+**Example:** For a feature with security requirements:
+1. dev-review → security-threat-model → dev-plan → dev-outline → dev-locate
+2. dev-implement → security-review
+3. dev-test → security-scan
+4. dev-ship → security-hardening (if issues found)
+
+## Common Patterns
+
+### Simple Feature (single phase)
+```
+REVIEW → PLAN → IMPLEMENT → TEST → SHIP
+```
+
+### Complex Feature (multiple phases)
+```
+REVIEW → PLAN (phase 1) → IMPLEMENT (phase 1) → PLAN (phase 2) → ... → SHIP
+```
+
+### Bug Fix
+```
+REVIEW → LOCATE → IMPLEMENT → TEST → SHIP
+```
+
+### Infrastructure
+```
+REVIEW → PLAN → IMPLEMENT → TEST → SHIP
+```
+
+## Success Criteria
+
+- [ ] All RPOLES phases completed
+- [ ] Task file updated throughout
+- [ ] Commits pushed after each phase
+- [ ] Result and Agent Log filled in
+- [ ] Task moved to done/
+- [ ] Session summary written
+
+---
+
+*task-executor is your RPOLES conductor. Follow the phases, commit often, ship successfully.*
