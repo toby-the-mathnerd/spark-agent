@@ -1,0 +1,118 @@
+# skill: qa-analyze
+# purpose: Analyze requirements for test coverage (QA Persona - Phase 1)
+# triggers: Task routed to QA persona
+
+## Invocation
+```
+qa-analyze <task-id> [--requirements <requirements-file>]
+```
+
+## Output
+Creates: `memory/tasks/<task-id>/qa-plan.md`
+
+## Implementation Flow
+
+### 1. Load Context
+```bash
+#!/bin/bash
+# qa-analyze.skill implementation
+
+TASK_ID="$1"
+REQ_FILE="${2:-memory/tasks/$TASK_ID/input.json}"
+
+if [ ! -f "$REQ_FILE" ]; then
+    echo "Error: Requirements file not found"
+    exit 1
+fi
+
+TASK=$(cat "$REQ_FILE")
+```
+
+### 2. Create QA Plan
+```markdown
+# QA Plan: <task-id>
+
+## Task Overview
+**ID:** $TASK_ID
+**Type:** $(echo $TASK | jq -r '.type')
+**Analyzed:** $(date +%Y-%m-%d)
+
+## Requirements Analysis
+
+### Functional Requirements
+| # | Requirement | Testable | Priority | Test Approach |
+|---|---|---|---|---|
+| 1 | <req> | ✓/✗ | <H/M/L> | <approach> |
+
+### Non-Functional Requirements
+| Requirement | Type | Test Approach |
+|---|---|---|
+| <req> | performance/security/usability | <approach> |
+
+## Acceptance Criteria Review
+$(echo $TASK | jq -r '.acceptance_criteria[]' 2>/dev/null || echo "No acceptance criteria specified")
+
+### Coverage Map
+| AC | Covered By | Test Type | Status |
+|----|---|---|---|
+| AC1 | <test-file> | unit/integration | planned |
+
+## Test Strategy
+
+### Test Levels
+#### Unit Tests
+- **Coverage Target:** >80%
+- **Focus:** <what to test>
+- **Framework:** <detected or suggested>
+
+#### Integration Tests
+- **Scope:** <what integrates>
+- **Focus Areas:** <boundaries, APIs>
+- **Dependencies:** <external services>
+
+#### E2E Tests
+- **Scenarios:** <key user flows>
+- **Environment:** <test/staging>
+
+### Test Types Required
+- [ ] Unit tests
+- [ ] Integration tests
+- [ ] Regression tests
+- [ ] Smoke tests
+- [ ] Edge case tests
+- [ ] Error handling tests
+
+## Risk Areas
+| Area | Risk Level | Test Focus | Notes |
+|------|---|---|---|
+| <area> | <H/M/L> | <focus> | <why> |
+
+## Test Data Requirements
+| Test | Data Needed | Source |
+|------|---|---|
+| <test> | <data> | <fixture/mock/real> |
+
+## Dependencies
+- **Code:** [Implementation](memory/tasks/$TASK_ID/)
+- **Design:** [Design Doc](memory/designs/$TASK_ID/)
+- **Test Framework:** <detected>
+
+## Estimated Effort
+| Test Type | Estimated Time |
+|---|---|
+| Unit | <estimate> |
+| Integration | <estimate> |
+| E2E | <estimate> |
+| **Total** | **<total>** |
+
+## Sign-off
+- [ ] QA plan approved
+- [ ] Ready to generate tests
+- [ ] Handoff to qa-generate-tests
+```
+
+### 3. Checkpoint
+```bash
+checkpoint --phase custom --description "QA plan created for $TASK_ID" \
+    --next "Proceed to qa-generate-tests"
+```

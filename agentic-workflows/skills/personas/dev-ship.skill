@@ -1,0 +1,207 @@
+# skill: dev-ship
+# purpose: Prepare for merge/handoff (RPOLES Phase 6: SHIP)
+# triggers: Tests passing, ready for final validation
+
+## Invocation
+```
+dev-ship <task-id> [--create-pr] [--draft]
+```
+
+## Output
+- Staged changes ready for commit
+- Changelog entry
+- Optional: PR created
+
+## Implementation Flow
+
+### 1. Load Context
+```bash
+#!/bin/bash
+# dev-ship.skill implementation
+
+TASK_ID="$1"
+CREATE_PR="${2:-false}"
+DRAFT="${3:-false}"
+
+# Gather all artifacts
+TASK=$(cat "memory/tasks/$TASK_ID/input.json")
+REVIEW=$(cat "memory/tasks/$TASK_ID/review.md" 2>/dev/null)
+PLAN=$(cat "memory/tasks/$TASK_ID/plan.md" 2>/dev/null)
+TEST_REPORT=$(cat "memory/tasks/$TASK_ID/test-report.md" 2>/dev/null)
+```
+
+### 2. Final Validation
+```bash
+# Run final checks
+final_validation() {
+    echo "Running final validation..."
+
+    local errors=0
+
+    # Check for staged changes
+    if [ -n "$(git diff --cached)" ]; then
+        echo "✓ Changes are staged"
+    else
+        echo "⚠ No staged changes found"
+    fi
+
+    # Check for unstaged changes
+    if [ -n "$(git diff)" ]; then
+        echo "⚠ Unstaged changes detected:"
+        git diff --name-only
+        read -p "Stage all changes? (y/n) " -n 1
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            git add -A
+        fi
+    fi
+
+    # Check tests
+    if grep -q "All tests passing" "memory/tasks/$TASK_ID/test-report.md" 2>/dev/null; then
+        echo "✓ Tests passing"
+    else
+        echo "✗ Test status unknown or failing"
+        ((errors++))
+    fi
+
+    # Check for TODOs/FIXMEs
+    local todos=$(git diff --cached --diff-filter=ACM | grep -E "TODO|FIXME" | wc -l)
+    if [ "$todos" -gt 0 ]; then
+        echo "⚠ Found $todos TODOs/FIXMEs in changes"
+    else
+        echo "✓ No TODOs/FIXMEs in changes"
+    fi
+
+    # Check for secrets
+    if command -v git-secret &> /dev/null; then
+        if git-secret hide --dry-run; then
+            echo "✓ No secrets detected"
+        else
+            echo "✗ Potential secrets found!"
+            ((errors++))
+        fi
+    fi
+
+    return $errors
+}
+```
+
+### 3. Create Changelog Entry
+```bash
+create_changelog_entry() {
+    local type=$(echo "$TASK" | jq -r '.type')
+    local description=$(echo "$TASK" | jq -r '.description')
+
+    cat > "CHANGELOG.d/$TASK_ID.md" << EOF
+### $type
+- $description (Task: $TASK_ID)
+
+**Files Changed:**
+$(git diff --cached --name-only | sed 's/^/  - /')
+
+**Related:**
+- [Design](memory/designs/$TASK_ID/design.md)
+- [Tests](memory/tasks/$TASK_ID/test-report.md)
+EOF
+}
+```
+
+### 4. Create Commit
+```bash
+create_commit() {
+    local type=$(echo "$TASK" | jq -r '.type')
+    local description=$(echo "$TASK" | jq -r '.description | split("\n")[:1] | join("")')
+
+    git commit -m "$(cat << EOF
+$UPPERCASE_TYPE: $description
+
+- Task: $TASK_ID
+$(git diff --cached --name-only | sed 's/^  - /  - /')
+
+**Implementation:**
+$(cat << 'INNER'
+$(if [ -f "memory/tasks/$TASK_ID/plan.md" ]; then
+    grep -A 5 "## Implementation Phases" "memory/tasks/$TASK_ID/plan.md" | head -10
+fi)
+INNER
+)
+
+**Testing:**
+$(if [ -f "memory/tasks/$TASK_ID/test-report.md" ]; then
+    grep "Results" -A 10 "memory/tasks/$TASK_ID/test-report.md" | head -15
+fi)
+
+**Checklist:**
+- [ ] Related docs updated
+- [ ] Tests added/updated
+- [ ] No secrets or credentials
+- [ ] Backward compatible
+
+Closes #$TASK_ID
+EOF
+)"
+}
+```
+
+### 5. Create PR (optional)
+```bash
+create_pr() {
+    local title="$1"
+    local body="$2"
+
+    if command -v gh &> /dev/null; then
+        gh pr create \
+            --title "$title" \
+            --body "$body" \
+            ${DRAFT:+--draft}
+    else
+        echo "GitHub CLI not found. Create PR manually:"
+        echo "1. git push -u origin <branch>"
+        echo "2. Create PR at github.com/<repo>/compare"
+    fi
+}
+```
+
+### 6. Ship Report
+```markdown
+# Ship Report: <task-id>
+
+## Summary
+**Task:** $TASK_ID
+**Type:** $(echo $TASK | jq -r '.type')
+**Shipped:** $(date +%Y-%m-%d)
+
+## Changes
+$(git diff --cached --stat)
+
+## Files Changed
+$(git diff --cached --name-only | sed 's/^/- /')
+
+## Test Results
+$(if [ -f "memory/tasks/$TASK_ID/test-report.md" ]; then
+    cat "memory/tasks/$TASK_ID/test-report.md"
+fi)
+
+## Changelog
+$(cat "CHANGELOG.d/$TASK_ID.md" 2>/dev/null || echo "No changelog entry")
+
+## Artifacts
+- [x] Code committed
+- [ ] PR created (optional)
+- [ ] Docs updated (if needed)
+
+## Next Steps
+- [ ] Code review
+- [ ] Merge to main
+- [ ] Deploy (if applicable)
+- [ ] Update task status
+
+## Handoff
+**To:** <next-stakeholder>
+**Notes:** <any important notes for reviewer>
+```
+
+### 7. Final Checkpoint
+```bash
+checkpoint --phase ship --description "Task $TASK_ID shipped" \
+    --next "Awaiting review and merge"
+```

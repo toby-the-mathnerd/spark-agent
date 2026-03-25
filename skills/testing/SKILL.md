@@ -51,7 +51,7 @@ what to test), Plan (test strategy), and Implementation (writing tests).
 - Scenario 2: [description]
 
 **Coverage Target:** [X%]
-```
+````
 
 ### PLAN — Design Test Strategy
 
@@ -84,7 +84,7 @@ what to test), Plan (test strategy), and Implementation (writing tests).
 
 **Mocks/Stubs:**
 - Mock 1: [what, behavior]
-```
+````
 
 ### OUTLINE — Test Structure
 
@@ -109,7 +109,7 @@ what to test), Plan (test strategy), and Implementation (writing tests).
 - Setup: [fixtures]
 - Tests: [grouped by feature]
 - Teardown: [cleanup]
-```
+````
 
 ### LOCATE — Find Existing Tests
 
@@ -123,7 +123,7 @@ grep -r "def test_" ~/claude-workspace/tests/ --include="*.py" | head -10
 # Check test config
 ls ~/claude-workspace/tests/
 cat ~/claude-workspace/pyproject.toml | grep -A 10 "\[tool.pytest\]"
-```
+````
 
 **Output:** Existing test patterns identified
 
@@ -139,7 +139,7 @@ cat ~/claude-workspace/pyproject.toml | grep -A 10 "\[tool.pytest\]"
 git add .
 git commit -m "[task/NNN] test: add [feature] tests"
 git push
-```
+````
 
 **Common patterns:**
 
@@ -159,7 +159,7 @@ def test_api_endpoint():
 @pytest.fixture
 def sample_data():
     return {"key": "value"}
-```
+````
 
 ### SHIP — Commit Tests
 
@@ -169,7 +169,7 @@ def sample_data():
 # 3. Update CI if needed
 # 4. Document in task file
 # 5. Move task to done/
-```
+````
 
 ## Test Type Patterns
 
@@ -183,7 +183,7 @@ def test_addition():
 def test_division_by_zero():
     with pytest.raises(ZeroDivisionError):
         divide(1, 0)
-```
+````
 
 ### Integration Tests
 ```python
@@ -192,7 +192,7 @@ def test_database_connection():
     db.connect()
     assert db.is_connected()
     db.close()
-```
+````
 
 ### E2E Tests
 ```python
@@ -203,14 +203,14 @@ def test_user_login_flow():
     page.fill("#password", "secret")
     page.click("#login-btn")
     assert page.url == "/dashboard"
-```
+````
 
 ## Artifacts
 
 | Artifact | Location | When |
 |---------|---..----|---..---|
-| Test files | tests/ | Implement |
-| Fixtures | tests/conftest.py | Implement |
+| Test files | scripts/tests/ | Implement |
+| Fixtures | scripts/tests/data/ | Implement |
 | Coverage report | coverage.html | Test |
 | CI config | .github/workflows/ | Ship |
 
@@ -222,7 +222,7 @@ checkpoint --phase outline --description "Test structure defined" --next "Procee
 checkpoint --phase locate --description "Existing patterns identified" --next "Proceed to implement"
 checkpoint --phase implement --description "Test cases written" --next "Proceed to ship"
 checkpoint --phase ship --description "Tests committed, coverage met" --next "Task complete"
-```
+````
 
 ## Success Criteria
 
@@ -234,5 +234,15 @@ checkpoint --phase ship --description "Tests committed, coverage met" --next "Ta
 - [ ] Task file complete with Result + Agent Log
 
 ---
+
+## MANDATORY REQUIREMENT FOR ALL DEVELOPMENT TASKS
+
+**IMPORTANT:** As of task-006, **unit tests are now mandatory for ALL development tasks**, not just observability projects. This requirement is embedded in coding tasks and should be verified during the "Test" phase of the RPOLES workflow.
+
+To ensure quality and reduce regressions:
+- Every new function or component must be accompanied by unit tests
+- Test fixtures must be placed in `scripts/tests/data/` directory
+- Test files must be in `scripts/tests/` directory
+- All tests must pass before task completion
 
 *Testing is quality RPOLES. Review→Plan→Outline→Locate→Implement→Ship.*

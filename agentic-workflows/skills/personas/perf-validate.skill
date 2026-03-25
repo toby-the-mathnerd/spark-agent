@@ -1,0 +1,104 @@
+# skill: perf-validate
+# purpose: Validate performance meets requirements (Performance Persona - Phase 4)
+# triggers: Optimization complete
+
+## Invocation
+```
+perf-validate <task-id> [--optimization <optimization-report>]
+```
+
+## Output
+Creates: `memory/tasks/<task-id>/perf-validation.md`
+
+## Implementation Flow
+
+### 1. Final Verification
+```bash
+#!/bin/bash
+# perf-validate.skill implementation
+
+TASK_ID="$1"
+OPT_REPORT="${2:-memory/tasks/$TASK_ID/optimization-report.md}"
+
+echo "Running final performance validation..."
+```
+
+### 2. Generate Validation Report
+```markdown
+# Performance Validation: <task-id>
+
+## Validation Summary
+**Task:** $TASK_ID
+**Validated:** $(date +%Y-%m-%d)
+**Validated By:** <agent-name>
+
+## Final Metrics
+
+### Response Time
+| Metric | Requirement | Baseline | Optimized | Status |
+|--------|---|---|-|---|
+| Average | <req>ms | <base>ms | <opt>ms | ✓/✗ |
+| P95 | <req>ms | <base>ms | <opt>ms | ✓/✗ |
+| P99 | <req>ms | <base>ms | <opt>ms | ✓/✗ |
+
+### Throughput
+| Metric | Requirement | Baseline | Optimized | Status |
+|--------|---|---|-|---|
+| Requests/sec | <req> | <base> | <opt> | ✓/✗ |
+
+### Resource Usage
+| Metric | Limit | Baseline | Optimized | Status |
+|--------|---|---|-|---|
+| Memory | <lim>MB | <base>MB | <opt>MB | ✓/✗ |
+| CPU | <lim>% | <base>% | <opt>% | ✓/✗ |
+
+## Improvement Summary
+| Metric | Improvement | Target | Achieved |
+|---|---|---|-|
+| Response Time | <base>ms → <opt>ms | <target>% | ✓/✗ |
+| Memory Usage | <base>MB → <opt>MB | <target>% | ✓/✗ |
+
+## Optimizations Applied
+1. <optimization 1> - <result>
+2. <optimization 2> - <result>
+
+## Remaining Concerns
+| Concern | Impact | Recommended Action |
+|---|---|-|
+| <concern> | H/M/L | <action> |
+
+## Load Test Results
+| Scenario | Users | Status | Notes |
+|---|---|---|-|
+| Normal Load | <n> | ✓/✗ | <notes> |
+| Peak Load | <n> | ✓/✗ | <notes> |
+| Stress | <n> | ✓/✗ | <notes> |
+
+## Monitoring Recommendations
+- [ ] Add response time metrics
+- [ ] Add throughput metrics
+- [ ] Add resource utilization alerts
+- [ ] Set up performance regression alerts
+
+## Sign-off
+**Performance Validation:** ✓ PASSED | ⚠ ACCEPTABLE | ✗ FAILED
+
+**Approved for production:** Yes/No
+
+**Conditions (if any):**
+- <condition 1>
+- <condition 2>
+
+**Next:** Handoff to dev-ship or perf-optimize
+```
+
+### 3. Checkpoint
+```bash
+if [ "$ALL_METRICS_PASS" = "true" ]; then
+    checkpoint --phase custom --description "Performance validation passed for $TASK_ID" \
+        --next "Ready for handoff to dev-ship"
+else
+    checkpoint --phase custom --description "Performance validation failed for $TASK_ID" \
+        --next "Additional optimization required"
+fi
+```

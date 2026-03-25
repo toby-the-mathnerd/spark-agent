@@ -1,0 +1,189 @@
+# skill: security-threat-model
+# purpose: Create threat model for new features or changes (Security Persona - Phase 1)
+# triggers: New feature or change received
+
+## Invocation
+```
+security-threat-model <task-id> [--design <design-file>] [--data-flows <data-flows-file>]
+```
+
+## Output
+Creates: `memory/tasks/<task-id>/threat-model.md`
+
+## Implementation Flow
+
+### 1. Load Context
+```bash
+#!/bin/bash
+# security-threat-model.skill implementation
+
+TASK_ID="$1"
+DESIGN_FILE="${2:-memory/designs/$TASK_ID/design.md}"
+
+if [ ! -f "$DESIGN_FILE" ]; then
+    echo "Warning: Design file not found, proceeding with available context"
+fi
+
+DESIGN=$(cat "$DESIGN_FILE" 2>/dev/null)
+TASK=$(cat "memory/tasks/$TASK_ID/input.json")
+```
+
+### 2. Create Threat Model
+```markdown
+# Threat Model: <task-id>
+
+## Overview
+**Task:** $TASK_ID
+**Analyzed:** $(date +%Y-%m-%d)
+**Security Engineer:** <agent-name>
+
+## System Context
+
+### What Are We Protecting?
+| Asset | Sensitivity | Owner |
+|-------|---|---|
+| <asset> | <H/M/L> | <owner> |
+
+### Trust Boundaries
+```
+┌─────────────────────────────────────┐
+│      Trusted Zone                   │
+│  ┌─────────────────────────────┐   │
+│  │    Internal Services        │   │
+│  └─────────────────────────────┘   │
+└─────────────────────────────────────┘
+         │
+         │ Trust Boundary
+         ▼
+┌─────────────────────────────────────┐
+│      Untrusted Zone                 │
+│  User Input / External APIs         │
+└─────────────────────────────────────┘
+```
+
+### Data Flow
+1. User → <component> (Untrusted → Trusted)
+2. <component> → Database (Trusted → Trusted)
+3. Database → <component> (Trusted → Trusted)
+
+## Threat Analysis
+
+### STRIDE Analysis
+
+#### Spoofing Threats
+| ID | Component | Threat | Risk | Mitigation |
+|----|---|---|---|---|
+| S1 | <component> | User can impersonate others | H | JWT validation, session management |
+
+#### Tampering Threats
+| ID | Component | Threat | Risk | Mitigation |
+|----|---|---|---|---|
+| T1 | <data> | Data modified in transit | H | TLS encryption |
+
+#### Repudiation Threats
+| ID | Component | Threat | Risk | Mitigation |
+|----|---|---|---|---|
+| R1 | <action> | User denies action | M | Audit logging |
+
+#### Information Disclosure Threats
+| ID | Component | Threat | Risk | Mitigation |
+|----|---|---|---|---|
+| I1 | <data> | Sensitive data exposure | H | Encryption, access controls |
+
+#### Denial of Service Threats
+| ID | Component | Threat | Risk | Mitigation |
+|----|---|---|---|---|
+| D1 | <service> | Resource exhaustion | M | Rate limiting, quotas |
+
+#### Elevation of Privilege Threats
+| ID | Component | Threat | Risk | Mitigation |
+|----|---|---|---|---|
+| E1 | <endpoint> | Unprivileged user gains admin | H | RBAC, authorization checks |
+
+## Input Validation Analysis
+| Input Source | Type | Validation Required | Sanitization |
+|---|---|---|---|
+| User input | String | ✓ | HTML escape, SQL parameterization |
+| API payload | JSON | ✓ | Schema validation |
+| File upload | Binary | ✓ | Type checking, size limits |
+
+## Authentication/Authorization
+### Authentication
+- [ ] Multi-factor authentication required?
+- [ ] Session management secure?
+- [ ] Password policy enforced?
+- [ ] Token expiration configured?
+
+### Authorization
+- [ ] RBAC implemented?
+- [ ] Least privilege principle followed?
+- [ ] Horizontal privilege escalation checked?
+- [ ] Vertical privilege escalation checked?
+
+## Data Protection
+### Data at Rest
+| Data Type | Encryption | Key Management |
+|---|---|---|
+| <data> | ✓ AES-256 | KMS |
+
+### Data in Transit
+| Path | Protocol | TLS Version |
+|------|---|---|
+| <path> | HTTPS | 1.3 |
+
+## Security Controls Checklist
+### Required Controls
+- [ ] Input validation
+- [ ] Output encoding
+- [ ] Authentication
+- [ ] Authorization
+- [ ] Session management
+- [ ] Cryptography
+- [ ] Error handling
+- [ ] Logging
+- [ ] Rate limiting
+
+### Recommended Controls
+- [ ] Content Security Policy
+- [ ] CSRF protection
+- [ ] Security headers
+- [ ] Dependency scanning
+- [ ] Secret scanning
+
+## Risk Summary
+| Risk Level | Count |
+|------------|-------|
+| Critical | 0 |
+| High | <n> |
+| Medium | <n> |
+| Low | <n> |
+
+## Recommendations
+### Critical/High Priority
+1. <recommendation>
+2. <recommendation>
+
+### Medium Priority
+1. <recommendation>
+
+### Low Priority
+1. <recommendation>
+
+## Sign-off
+**Security Review Status:** ✓ APPROVED | ⚠ APPROVED WITH CONDITIONS | ✗ REQUIRES REMEDIATION
+
+**Conditions:**
+- <condition 1>
+- <condition 2>
+
+**Next Steps:**
+- [ ] Address critical/high findings
+- [ ] Security code review
+- [ ] Automated security scans
+```
+
+### 3. Checkpoint
+```bash
+checkpoint --phase custom --description "Threat model created for $TASK_ID" \
+    --next "Address findings and proceed to security-review"
+```

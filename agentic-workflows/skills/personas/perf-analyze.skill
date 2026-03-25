@@ -1,0 +1,136 @@
+# skill: perf-analyze
+# purpose: Analyze performance characteristics (Performance Persona - Phase 1)
+# triggers: Task routed to Performance persona
+
+## Invocation
+```
+perf-analyze <task-id> [--design <design-file>] [--code-dir <code-directory>]
+```
+
+## Output
+Creates: `memory/tasks/<task-id>/perf-analysis.md`
+
+## Implementation Flow
+
+### 1. Load Context
+```bash
+#!/bin/bash
+# perf-analyze.skill implementation
+
+TASK_ID="$1"
+DESIGN_FILE="${2:-memory/designs/$TASK_ID/design.md}"
+CODE_DIR="${3:-.}"
+
+TASK=$(cat "memory/tasks/$TASK_ID/input.json")
+DESIGN=$(cat "$DESIGN_FILE" 2>/dev/null)
+```
+
+### 2. Create Performance Analysis
+```markdown
+# Performance Analysis: <task-id>
+
+## Overview
+**Task:** $TASK_ID
+**Analyzed:** $(date +%Y-%m-%d)
+**Analyst:** <agent-name>
+
+## Requirements Analysis
+
+### Performance Requirements
+| Metric | Target | Current | Status |
+|--------|--------|---|---|
+| Response Time | <ms> | N/A | <new> |
+| Throughput | <req/s> | N/A | <new> |
+| Memory Usage | <MB> | N/A | <new> |
+| CPU Usage | <percent> | N/A | <new> |
+
+### Expected Load
+- **Requests/second:** <estimate>
+- **Concurrent users:** <estimate>
+- **Data volume:** <estimate>
+- **Peak periods:** <description>
+
+## Code Analysis
+
+### Hot Paths Identified
+```bash
+# Find performance-critical code
+grep -rn "for.*in.*range" "$CODE_DIR" --include="*.py" | head -20
+grep -rn "while True" "$CODE_DIR" --include="*.py" | head -10
+grep -rn "import" "$CODE_DIR" --include="*.py" | wc -l
+```
+
+| Location | Pattern | Risk | Recommendation |
+|---|---|---|---|
+| <file:line> | <pattern> | H/M/L | <fix> |
+
+### Database/IO Operations
+| Operation | Type | Risk | Recommendation |
+|---|---|---|---|
+| <query> | SELECT/INSERT | H/M/L | Add index/query optimization |
+
+### Memory Analysis
+```bash
+# Check for potential memory issues
+grep -rn "list.*append" "$CODE_DIR" --include="*.py" | wc -l
+grep -rn "read().*split" "$CODE_DIR" --include="*.py" | head -10
+```
+
+| Issue | Risk | Recommendation |
+|-------|------|---|
+| Loading large files into memory | H | Use streaming/generators |
+
+### Algorithm Complexity
+| Function | Current Complexity | Optimized Target |
+|---|---|---|
+| <func> | O(n²) | O(n log n) |
+
+## Bottleneck Prediction
+| Component | Bottleneck Risk | Impact | Mitigation |
+|---|---|---|---|
+| Database queries | High | Request latency | Add indexes, query optimization |
+| API calls | Medium | External dependency | Caching, connection pooling |
+| Computation | Low | CPU usage | Algorithm optimization |
+
+## Resource Estimates
+| Resource | Estimated Usage | Limit | Headroom |
+|---|---|---|---|
+| Memory | <estimate> MB | <limit> MB | <percent>% |
+| CPU | <estimate>% | 100% | <percent>% |
+| Disk I/O | <estimate> MB/s | <limit> MB/s | <percent>% |
+
+## Recommendations
+### Must Implement (Before Production)
+1. <critical optimization>
+2. <critical optimization>
+
+### Should Implement
+1. <important optimization>
+
+### Consider (Future Optimization)
+1. <optional optimization>
+
+## Testing Plan
+### Benchmarks Required
+- [ ] Load test: <scenario>
+- [ ] Stress test: <scenario>
+- [ ] Soak test: <scenario>
+- [ ] Spike test: <scenario>
+
+### Baseline Measurements Needed
+- [ ] Response time baseline
+- [ ] Throughput baseline
+- [ ] Resource usage baseline
+
+## Sign-off
+**Performance Analysis Status:** ✓ COMPLETE | ⚠ NEEDS ATTENTION
+
+**Ready for benchmarking:** Yes/No
+**Next:** perf-benchmark
+```
+
+### 3. Checkpoint
+```bash
+checkpoint --phase custom --description "Performance analysis complete for $TASK_ID" \
+    --next "Create benchmarks with perf-benchmark"
+```

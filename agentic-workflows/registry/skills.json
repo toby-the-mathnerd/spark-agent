@@ -1,0 +1,35 @@
+{
+  "skills": {
+    "infrastructure": ["checkpoint", "task-receiver", "task-router"],
+    "architect": ["architect-analyze", "architect-decision-record", "architect-validate"],
+    "developer": {
+      "review": "dev-review",
+      "plan": "dev-plan",
+      "outline": "dev-outline",
+      "locate": "dev-locate",
+      "implement": "dev-implement",
+      "test": "dev-test",
+      "ship": "dev-ship"
+    },
+    "qa": ["qa-analyze", "qa-generate-tests", "qa-validate", "qa-report"],
+    "security": ["security-threat-model", "security-review", "security-scan", "security-hardening"],
+    "performance": ["perf-analyze", "perf-benchmark", "perf-optimize", "perf-validate"],
+    "lobster": ["lobster-ansible-playbook", "lobster-dockerfile", "lobster-cicd", "lobster-k8s"],
+    "coordination": ["handoff-prepare", "conflict-resolve", "status-aggregate"],
+    "spark": ["spark-poll-task", "spark-move-task", "spark-update-task", "spark-submit-result"]
+  },
+  "personas": {
+    "architect": ["architect-analyze", "architect-decision-record", "architect-validate"],
+    "developer": ["dev-review", "dev-plan", "dev-outline", "dev-locate", "dev-implement", "dev-test", "dev-ship"],
+    "qa": ["qa-analyze", "qa-generate-tests", "qa-validate", "qa-report"],
+    "security": ["security-threat-model", "security-review", "security-scan", "security-hardening"],
+    "performance": ["perf-analyze", "perf-benchmark", "perf-optimize", "perf-validate"]
+  },
+  "memory_locations": {
+    "tasks": "memory/tasks/",
+    "designs": "memory/designs/",
+    "personas": "memory/personas/",
+    "knowledge": "memory/knowledge/",
+    "context": "memory/context/"
+  }
+}

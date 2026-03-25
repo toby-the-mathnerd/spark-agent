@@ -122,12 +122,21 @@ git push
 
 ### TEST — Validate Implementation
 
+**CRITICAL REQUIREMENT:** All development tasks must include unit tests. Tests are now a core requirement of the implementation process.
+
 ```bash
-# 1. Create/update tests
+# 1. Create/update tests (always required)
 # 2. Run test suite
 # 3. Fix any failures
 # 4. Verify coverage
 ```
+
+**Test Requirements:**
+- All new functions must have unit tests
+- Test files must be placed in `scripts/tests/` directory
+- Test fixtures must be in `scripts/tests/data/` directory  
+- Tests must cover valid cases, edge cases, and error conditions
+- All tests must pass before task completion
 
 **Output:** Passing tests, coverage report in task file
 
@@ -149,7 +158,7 @@ git push
 2. Define interface/contract
 3. Implement core logic
 4. Add error handling
-5. Write tests
+5. Write tests - **THIS IS MANDATORY**
 6. Document usage
 
 ### Bug Fix
@@ -172,7 +181,7 @@ git push
 |----------|-----------|---...|
 | Task branch | git | After claim |
 | Code files | ~/claude-workspace/ | During implement |
-| Tests | ~/claude-workspace/tests/ | During test |
+| Tests | ~/claude-workspace/scripts/tests/ | During test |
 | PR | GitHub | When done |
 | Task file | spark-tasks/tasks/done/ | When done |
 
@@ -193,7 +202,7 @@ checkpoint --phase ship --description "PR open, ready for review" --next "Task c
 ## Success Criteria
 
 - [ ] Code follows existing patterns
-- [ ] Tests cover new functionality
+- [ ] Tests cover new functionality - **MANDATORY**
 - [ ] Documentation updated
 - [ ] No regressions introduced
 - [ ] PR has clear description

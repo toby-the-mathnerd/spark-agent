@@ -1,0 +1,106 @@
+# skill: architect-validate
+# purpose: Validate implementation against architectural design
+# triggers: Before shipping, during code review
+
+## Invocation
+```
+architect-validate <task-id> [--design <design-file>] [--impl <impl-directory>]
+```
+
+## Output
+Creates: `memory/designs/<task-id>/validation.md`
+
+## Validation Checklist
+```markdown
+# Architectural Validation: <task-id>
+
+## Design Reference
+- Design Document: <path>
+- ADRs: <list of related ADRs>
+
+## Component Alignment
+| Component | Expected | Actual | Status | Notes |
+|---|------|---|---|-----|
+| <component> | <expected> | <found> | ✓/✗ | <notes> |
+
+## Interface Compliance
+| Interface | Contract | Implementation | Status |
+|---|---|---|---|
+| <API/config> | <spec> | <found> | ✓/✗ |
+
+## Data Flow Verification
+- [ ] Data flows as designed
+- [ ] No unauthorized data paths
+- [ ] Error handling matches design
+
+## Dependency Verification
+- [ ] All dependencies declared
+- [ ] No unexpected dependencies
+- [ ] Version compatibility verified
+
+## Security Alignment
+- [ ] Security patterns followed
+- [ ] Authentication/authorization as designed
+- [ ] Data protection implemented
+
+## Performance Alignment
+- [ ] Expected latency acceptable
+- [ ] Resource usage within bounds
+- [ ] Scalability considerations addressed
+
+## Deviations
+| Deviation | Impact | Acceptable | Notes |
+|---|---|---|---|
+| <what> | <impact> | Y/N | <why> |
+
+## Overall Assessment
+**Status:** ✓ APPROVED | ⚠ APPROVED WITH NOTES | ✗ REQUIRES REVISION
+
+**Recommendations:**
+- <recommendation 1>
+- <recommendation 2>
+```
+
+## Implementation
+```bash
+#!/bin/bash
+# architect-validate.skill implementation
+
+TASK_ID="$1"
+DESIGN_FILE="${2:-memory/designs/$TASK_ID/design.md}"
+IMPL_DIR="${3:-.}"
+
+if [ ! -f "$DESIGN_FILE" ]; then
+    echo "Error: Design file not found: $DESIGN_FILE"
+    exit 1
+fi
+
+# Parse design and compare to implementation
+# This would typically involve:
+# 1. Extracting expected components from design
+# 2. Scanning implementation for actual components
+# 3. Comparing interfaces/APIs
+# 4. Validating data flows
+# 5. Documenting deviations
+
+VALIDATION_REPORT="memory/designs/$TASK_ID/validation.md"
+
+# Generate validation report (simplified)
+cat > "$VALIDATION_REPORT" << EOF
+# Architectural Validation: $TASK_ID
+
+## Automated Checks
+$(run_component_checks "$DESIGN_FILE" "$IMPL_DIR")
+
+## Manual Review Required
+- Interface contracts
+- Error handling
+- Edge cases
+
+## Overall Status
+Pending manual review
+EOF
+
+checkpoint --phase custom --description "Architectural validation started for $TASK_ID" \
+    --next "Manual review needed before approval"
+```

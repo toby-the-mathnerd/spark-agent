@@ -1,0 +1,101 @@
+# skill: task-router
+# purpose: Route tasks to appropriate persona based on type and complexity
+# triggers: Task received and parsed
+
+## Invocation
+```
+task-route <task-id> [--force-persona <architect|developer|qa|security|performance>]
+```
+
+## Routing Rules
+
+| Task Type | Primary Persona | Secondary |
+|-----------|----------------|-----------|
+| feature | developer | architect (if complex) |
+| bugfix | developer | qa (if regression) |
+| refactor | developer | performance (if perf-critical) |
+| infra | developer (lobster) | security (if security infra) |
+| document | developer | architect (if ADR) |
+| security-audit | security | - |
+| threat-model | security | architect |
+| perf-analysis | performance | - |
+| perf-optimization | performance | developer |
+| code-review | qa | security |
+
+## Implementation
+```bash
+#!/bin/bash
+# task-router.skill implementation
+
+TASK_ID="$1"
+FORCE_PERSONA="${2:-}"
+
+# Load task
+TASK_FILE="memory/tasks/$TASK_ID/input.json"
+if [ ! -f "$TASK_FILE" ]; then
+    echo "Task not found: $TASK_ID"
+    exit 1
+fi
+
+TASK=$(cat "$TASK_FILE")
+TASK_TYPE=$(echo "$TASK" | jq -r '.type')
+COMPLEXITY=$(echo "$TASK" | jq -r '.estimated_complexity')
+
+# Determine persona
+if [ -n "$FORCE_PERSONA" ]; then
+    PERSONA="$FORCE_PERSONA"
+else
+    case "$TASK_TYPE" in
+        security-audit|security-review|threat-model)
+            PERSONA="security"
+            ;;
+        perf-analysis|perf-optimization|benchmark)
+            PERSONA="performance"
+            ;;
+        feature|bugfix|refactor|infra|document)
+            # Check complexity for architect involvement
+            if [ "$COMPLEXITY" = "critical" ] || [ "$COMPLEXITY" = "high" ]; then
+                PERSONA="architect"
+            else
+                PERSONA="developer"
+            fi
+            ;;
+        *)
+            PERSONA="developer"
+            ;;
+    esac
+fi
+
+# Record routing decision
+cat > memory/tasks/$TASK_ID/routing.json << EOF
+{
+    "task_id": "$TASK_ID",
+    "routed_to": "$PERSONA",
+    "task_type": "$TASK_TYPE",
+    "complexity": "$COMPLEXITY",
+    "routed_at": "$(date -Iseconds)"
+}
+EOF
+
+# Create handoff
+mkdir -p memory/personas/$PERSONA/inbox
+cp "$TASK_FILE" "memory/personas/$PERSONA/inbox/$TASK_ID.json"
+
+echo "Task $TASK_ID routed to: $PERSONA"
+echo "Priority: $(echo $TASK | jq -r '.priority // "normal"')"
+
+# Create checkpoint
+checkpoint --phase custom --description "Task $TASK_ID routed to $PERSONA" --next "$PERSONA persona begins review"
+```
+
+## Queue Management
+```bash
+# List queued tasks for a persona
+task-queue --persona <persona>
+
+# Priority ordering
+# 1. critical
+# 2. high
+# 3. normal
+# 4. low
+```

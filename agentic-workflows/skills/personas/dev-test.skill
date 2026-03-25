@@ -1,0 +1,176 @@
+# skill: dev-test
+# purpose: Create/update tests alongside implementation (RPOLES Phase 5: EXECUTE)
+# triggers: Code implemented
+
+## Invocation
+```
+dev-test <task-id> [--source-dir <source-directory>] [--coverage]
+```
+
+## Output
+Creates: Test files + coverage report
+
+## Implementation Flow
+
+### 1. Load Context
+```bash
+#!/bin/bash
+# dev-test.skill implementation
+
+TASK_ID="$1"
+SOURCE_DIR="${2:-.}"
+
+# Load outline for test strategy
+OUTLINE_FILE="memory/tasks/$TASK_ID/outline.md"
+TEST_STRATEGY=$(grep -A 20 "## Test Outline" "$OUTLINE_FILE" 2>/dev/null)
+```
+
+### 2. Test Generation
+```bash
+# Generate unit tests based on outline
+generate_unit_tests() {
+    local file="$1"
+    local outline_section="$2"
+
+    # Extract function signatures from outline
+    FUNCTIONS=$(echo "$outline_section" | grep "| <func>" | awk '{print $2}')
+
+    for FUNC in $FUNCTIONS; do
+        cat > "tests/test_${file##*/}.py" << EOF
+# Tests for $file
+# Task: $TASK_ID
+
+import pytest
+from <module> import $FUNC
+
+def test_${FUNC}_happy_path():
+    """Test $FUNC with valid inputs"""
+    # Arrange
+    <inputs>
+
+    # Act
+    result = $FUNC(<args>)
+
+    # Assert
+    assert result == <expected>
+
+
+def test_${FUNC}_edge_case():
+    """Test $FUNC with edge cases"""
+    # Arrange
+    <edge_inputs>
+
+    # Act/Assert
+    with pytest.raises(<Exception>):
+        $FUNC(<args>)
+EOF
+    done
+}
+
+# Generate integration tests
+generate_integration_tests() {
+    local file="$1"
+
+    cat > "tests/integration/test_${file##*/}_integration.py" << EOF
+# Integration tests for $file
+# Task: $TASK_ID
+
+import pytest
+from <module> import <class>
+
+@pytest.fixture
+def <fixture_name>():
+    """Set up test fixtures"""
+    return <setup>
+
+
+def test_<scenario>($<fixture>):
+    """Test <scenario> integration"""
+    # Arrange
+    <setup>
+
+    # Act
+    result = <operation>
+
+    # Assert
+    assert <condition>
+EOF
+}
+```
+
+### 3. Run Tests
+```bash
+# Run tests and capture results
+run_tests() {
+    local test_dir="${SOURCE_DIR}/tests"
+
+    echo "Running tests..."
+
+    if command -v pytest &> /dev/null; then
+        pytest "$test_dir" -v --tb=short ${1:+--cov=$1}
+    elif command -v npm &> /dev/null; then
+        npm test -- --verbose
+    elif command -v go &> /dev/null; then
+        go test -v ./...
+    else
+        echo "No test runner detected. Manual test execution required."
+        return 1
+    fi
+}
+```
+
+### 4. Test Report
+```markdown
+# Test Report: <task-id>
+
+## Test Execution
+**Date:** $(date +%Y-%m-%d)
+**Source:** $SOURCE_DIR
+
+## Results
+| Suite | Total | Passed | Failed | Skipped |
+|---|---|---|---|---|
+| Unit | <n> | <n> | <n> | <n> |
+| Integration | <n> | <n> | <n> | <n> |
+| **Total** | **<n>** | **<n>** | **<n>** | **<n>** |
+
+## Coverage
+$(if [ "$COVERAGE" = "true" ]; then
+    echo "```"
+    coverage report
+    echo "```"
+fi)
+
+## Test Cases
+### Unit Tests
+$(find "$SOURCE_DIR/tests" -name "test_*.py" -exec echo "- {}" \;)
+
+### Integration Tests
+$(find "$SOURCE_DIR/tests" -name "*_integration.py" -exec echo "- {}" \;)
+
+## Failed Tests
+$(if [ -n "$FAILED_TESTS" ]; then
+    echo "$FAILED_TESTS"
+else
+    echo "None"
+fi)
+
+## Notes
+- <any test-specific notes>
+
+## Sign-off
+- [ ] All tests passing
+- [ ] Coverage adequate
+- [ ] Ready for dev-ship
+```
+
+### 5. Checkpoint
+```bash
+if [ "$ALL_TESTS_PASSED" = "true" ]; then
+    checkpoint --phase execute --description "Tests implemented and passing for $TASK_ID" \
+        --next "Proceed to dev-ship for final validation"
+else
+    checkpoint --phase execute --description "Tests created with failures - see report" \
+        --next "Fix failing tests before shipping"
+fi
+```

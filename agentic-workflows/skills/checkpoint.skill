@@ -1,0 +1,61 @@
+# skill: checkpoint
+# purpose: Create git checkpoint with proper commit message and metadata
+# triggers: Before any significant change, after each RPOLES phase
+
+## Invocation
+```
+checkpoint --phase <phase-name> --description "<concise description>" [--next "<what comes next>"]
+```
+
+## Pre-conditions
+- Git repository initialized
+- Changes staged (or stage with --add <files>)
+
+## Implementation
+```bash
+#!/bin/bash
+# checkpoint.skill implementation
+
+PHASE="${1}"
+DESCRIPTION="${2}"
+NEXT="${3:-}"
+AGENT="${AGENT_NAME:-unknown-agent}"
+TASK="${TASK_ID:-manual}"
+TIMESTAMP=$(date -Iseconds)
+
+# Validate phase
+case "$PHASE" in
+    review|plan|outline|locate|execute|ship|custom)
+        ;;
+    *)
+        echo "Invalid phase: $PHASE"
+        exit 1
+        ;;
+esac
+
+# Create commit message
+COMMIT_MSG='['"$PHASE"'] '"$DESCRIPTION"
+
+if [ -n "$NEXT" ]; then
+    COMMIT_MSG="$COMMIT_MSG
+
+Next: $NEXT"
+fi
+
+COMMIT_MSG="$COMMIT_MSG
+
+Agent: $AGENT
+Task: $TASK
+Checkpoint: $TIMESTAMP"
+
+# Commit
+git commit -m "$COMMIT_MSG"
+
+echo "✓ Checkpoint created: [$PHASE] $DESCRIPTION"
+```
+
+## Usage Examples
+```
+checkpoint --phase review --description "Requirements analyzed, 2 clarifications needed" --next "Wait for clarifications before planning"
+checkpoint --phase execute --description "Auth module implemented with tests" --next "Handoff to QA for validation"
+```

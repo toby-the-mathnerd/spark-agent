@@ -1,0 +1,143 @@
+# skill: dev-plan
+# purpose: Create implementation plan (RPOLES Phase 2: PLAN)
+# triggers: Review complete, task ready for planning
+
+## Invocation
+```
+dev-plan <task-id> [--review <review-file>]
+```
+
+## Output
+Creates: `memory/tasks/<task-id>/plan.md`
+
+## Implementation Flow
+
+### 1. Load Context
+```bash
+#!/bin/bash
+# dev-plan.skill implementation
+
+TASK_ID="$1"
+REVIEW_FILE="${2:-memory/tasks/$TASK_ID/review.md}"
+
+# Load task and review
+TASK=$(cat "memory/tasks/$TASK_ID/input.json")
+
+if [ ! -f "$REVIEW_FILE" ]; then
+    echo "Error: Review file not found. Run dev-review first."
+    exit 1
+fi
+
+REVIEW=$(cat "$REVIEW_FILE")
+```
+
+### 2. Create Plan Document
+```markdown
+# Implementation Plan: <task-id>
+
+## Overview
+**Task:** $TASK_ID
+**Planner:** <agent-name>
+**Created:** $(date +%Y-%m-%d)
+
+## Requirements Summary
+$(grep -A 20 "## Requirements Extracted" "$REVIEW_FILE" | head -25)
+
+## Implementation Phases
+
+### Phase 1: <phase name>
+**Goal:** <what this phase accomplishes>
+
+**Steps:**
+1. <specific action>
+2. <specific action>
+
+**Files to Create/Modify:**
+| File | Action | Purpose |
+|------|--------|---|
+| <path> | create|modify|delete | <why> |
+
+**Checkpoint:** After completion
+
+### Phase 2: <phase name>
+...
+
+### Phase N: <phase name>
+...
+
+## Milestone Checkpoints
+
+| # | Checkpoint | Description |
+|---|---|---|
+| 1 | `plan-1` | After <milestone> |
+| 2 | `plan-2` | After <milestone> |
+| 3 | `plan-3` | After <milestone> |
+
+## Dependencies
+
+### External Dependencies
+- <dependency 1> - <how to obtain>
+- <dependency 2> - <how to obtain>
+
+### Internal Dependencies
+- Task: <related-task-id>
+- Component: <component-name>
+
+## Complexity Analysis
+| Component | Complexity | Notes |
+|---|---|---|
+| <component> | <S/M/L/XL> | <reasoning> |
+
+## Risk Mitigation
+| Risk | Mitigation |
+|------|---|
+| <risk> | <approach> |
+
+## Rollback Plan
+If something goes wrong:
+1. <rollback step 1>
+2. <rollback step 2>
+
+## Success Criteria
+- [ ] <criterion 1>
+- [ ] <criterion 2>
+
+## Estimated Effort
+- **Phase 1:** <estimate>
+- **Phase 2:** <estimate>
+- **Total:** <total estimate>
+
+## Approval
+- [ ] Plan reviewed
+- [ ] Ready for outline phase
+```
+
+### 3. Create Plan File
+```bash
+mkdir -p "memory/tasks/$TASK_ID"
+cat > "memory/tasks/$TASK_ID/plan.md" << EOF
+$PLAN_DOCUMENT
+EOF
+```
+
+### 4. Create Checkpoint
+```bash
+checkpoint --phase plan --description "Implementation plan created for $TASK_ID" \
+    --next "Proceed to dev-outline for detailed implementation outline"
+```
+
+### 5. Output Summary
+```bash
+cat << EOF
+
+=====================================
+Implementation Plan: $TASK_ID
+=====================================
+
+Phases: $(echo "$PLAN_DOCUMENT" | grep -c "### Phase")
+Checkpoints: $(echo "$PLAN_DOCUMENT" | grep -c "\`plan-" )
+
+Next: dev-outline $TASK_ID
+
+EOF
+```

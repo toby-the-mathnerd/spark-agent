@@ -1,0 +1,138 @@
+# skill: dev-outline
+# purpose: Create detailed implementation outline (RPOLES Phase 3: OUTLINE)
+# triggers: Plan approved
+
+## Invocation
+```
+dev-outline <task-id> [--plan <plan-file>]
+```
+
+## Output
+Creates: `memory/tasks/<task-id>/outline.md`
+
+## Implementation Flow
+
+### 1. Load Context
+```bash
+#!/bin/bash
+# dev-outline.skill implementation
+
+TASK_ID="$1"
+PLAN_FILE="${2:-memory/tasks/$TASK_ID/plan.md}"
+
+TASK=$(cat "memory/tasks/$TASK_ID/input.json")
+
+if [ ! -f "$PLAN_FILE" ]; then
+    echo "Error: Plan file not found. Run dev-plan first."
+    exit 1
+fi
+
+PLAN=$(cat "$PLAN_FILE")
+```
+
+### 2. Create Outline Document
+```markdown
+# Implementation Outline: <task-id>
+
+## Overview
+**Task:** $TASK_ID
+**Planner:** <agent-name>
+**Created:** $(date +%Y-%m-%d)
+
+## File-by-File Implementation
+
+### File: <path/to/file>
+**Action:** create | modify | delete
+
+**Purpose:** <what this file accomplishes>
+
+**Interface/Contract:**
+```typescript
+// If code, show signatures
+interface ComponentProps {
+  <props>
+}
+```
+
+**Functions/Methods:**
+| Name | Inputs | Outputs | Purpose |
+|------|--------|---|--|
+| <func> | <args> | <return> | <what> |
+
+**Dependencies:**
+- <import/component>
+
+**Key Implementation Notes:**
+- <note 1>
+- <note 2>
+
+**Test Strategy:**
+- <test approach for this file>
+
+---
+
+### File: <path/to/another/file>
+...
+
+## Data Structures
+```
+<define key data structures>
+```
+
+## API/Interface Changes
+```
+<document new or modified interfaces>
+```
+
+## State Changes
+```
+<document state machine or state changes>
+```
+
+## Error Handling Strategy
+| Error Case | Handling |
+|---|---|
+| <case> | <approach> |
+
+## Configuration Changes
+| Key | Default | Description |
+|-----|---|---|
+| <key> | <value> | <what> |
+
+## Test Outline
+### Unit Tests
+- [ ] <test case 1>
+- [ ] <test case 2>
+
+### Integration Tests
+- [ ] <integration test 1>
+- [ ] <integration test 2>
+
+### Edge Cases
+- [ ] <edge case 1>
+- [ ] <edge case 2>
+
+## Implementation Order
+1. `<file>` - <reason>
+2. `<file>` - <reason>
+3. `<file>` - <reason>
+
+## Approval
+- [ ] Outline reviewed
+- [ ] Ready for dev-locate
+- [ ] Ready for dev-implement
+```
+
+### 3. Create Outline File
+```bash
+mkdir -p "memory/tasks/$TASK_ID"
+cat > "memory/tasks/$TASK_ID/outline.md" << EOF
+$OUTLINE_DOCUMENT
+EOF
+```
+
+### 4. Create Checkpoint
+```bash
+checkpoint --phase outline --description "Implementation outline created for $TASK_ID" \
+    --next "Proceed to dev-locate to find dependencies and patterns"
+```

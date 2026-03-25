@@ -1,0 +1,188 @@
+# skill: security-review
+# purpose: Code security review (Security Persona - Phase 2)
+# triggers: Code ready for security review
+
+## Invocation
+```
+security-review <task-id> [--code-dir <code-directory>] [--threat-model <threat-model-file>]
+```
+
+## Output
+Creates: `memory/tasks/<task-id>/security-review.md`
+
+## Implementation Flow
+
+### 1. Load Context
+```bash
+#!/bin/bash
+# security-review.skill implementation
+
+TASK_ID="$1"
+CODE_DIR="${2:-.}"
+THREAT_MODEL="${3:-memory/tasks/$TASK_ID/threat-model.md}"
+
+TASK=$(cat "memory/tasks/$TASK_ID/input.json")
+
+if [ -f "$THREAT_MODEL" ]; then
+    TM_CONTENT=$(cat "$THREAT_MODEL")
+fi
+```
+
+### 2. Security Scans
+```bash
+# Run static analysis
+run_security_scans() {
+    local code_dir="$1"
+
+    echo "Running security scans..."
+
+    # SAST - Static Application Security Testing
+    if command -v semgrep &> /dev/null; then
+        echo "Running Semgrep..."
+        semgrep scan "$code_dir" --config auto --json > "memory/tasks/$TASK_ID/semgrep-results.json"
+    fi
+
+    # Dependency scanning
+    if command -v pip-audit &> /dev/null; then
+        echo "Checking Python dependencies..."
+        pip-audit "$code_dir" > "memory/tasks/$TASK_ID/pip-audit-results.txt" 2>&1
+    fi
+
+    if command -v npm audit &> /dev/null; then
+        echo "Checking Node.js dependencies..."
+        npm audit --json > "memory/tasks/$TASK_ID/npm-audit-results.json" 2>&1
+    fi
+
+    # Secret scanning
+    if command -v gitleaks &> /dev/null; then
+        echo "Scanning for secrets..."
+        gitleaks detect --source "$code_dir" --report-path "memory/tasks/$TASK_ID/gitleaks-results.json"
+    fi
+}
+```
+
+### 3. Code Review Checklist
+```markdown
+# Security Review: <task-id>
+
+## Review Info
+**Task:** $TASK_ID
+**Reviewed:** $(date +%Y-%m-%d)
+**Reviewer:** <agent-name>
+
+## Automated Scan Results
+
+### SAST Results
+$(if [ -f "memory/tasks/$TASK_ID/semgrep-results.json" ]; then
+    echo "```"
+    cat "memory/tasks/$TASK_ID/semgrep-results.json" | jq '.results | length'
+    echo "findings"
+    echo "```"
+else
+    echo "SAST not run or no results"
+fi)
+
+### Dependency Vulnerabilities
+$(if [ -f "memory/tasks/$TASK_ID/npm-audit-results.json" ]; then
+    echo "Advisories: $(cat memory/tasks/$TASK_ID/npm-audit-results.json | jq '.metadata.vulnerabilities')"
+fi)
+
+### Secrets Detected
+$(if [ -f "memory/tasks/$TASK_ID/gitleaks-results.json" ]; then
+    echo "Secrets found: $(cat memory/tasks/$TASK_ID/gitleaks-results.json | jq '.violations | length')"
+fi)
+
+## Manual Code Review
+
+### Authentication
+| Check | Status | Notes |
+|-------|--------|---|
+| Passwords hashed with strong algorithm | ✓/✗ | <notes> |
+| Session tokens are secure | ✓/✗ | <notes> |
+| Multi-factor authentication | ✓/✗ | <notes> |
+| Token expiration configured | ✓/✗ | <notes> |
+
+### Authorization
+| Check | Status | Notes |
+|-------|--------|---|
+| RBAC implemented | ✓/✗ | <notes> |
+| Authorization checks on all endpoints | ✓/✗ | <notes> |
+| No hardcoded roles/permissions | ✓/✗ | <notes> |
+
+### Input Validation
+| Check | Status | Notes |
+|-------|--------|---|
+| All inputs validated | ✓/✗ | <notes> |
+| SQL injection prevention | ✓/✗ | <notes> |
+| XSS prevention | ✓/✗ | <notes> |
+| Command injection prevention | ✓/✗ | <notes> |
+
+### Data Protection
+| Check | Status | Notes |
+|-------|--------|---|
+| Sensitive data encrypted | ✓/✗ | <notes> |
+| PII handled securely | ✓/✗ | <notes> |
+| Secrets not hardcoded | ✓/✗ | <notes> |
+
+### Error Handling
+| Check | Status | Notes |
+|-------|--------|---|
+| No sensitive info in errors | ✓/✗ | <notes> |
+| Proper exception handling | ✓/✗ | <notes> |
+| Error logging configured | ✓/✗ | <notes> |
+
+### Logging
+| Check | Status | Notes |
+|-------|--------|---|
+| Security events logged | ✓/✗ | <notes> |
+| No sensitive data in logs | ✓/✗ | <notes> |
+| Log integrity protected | ✓/✗ | <notes> |
+
+## Findings
+
+### Critical
+| ID | Location | Finding | Recommendation |
+|----|---|---|---|
+| SEC-001 | <file:line> | <description> | <fix> |
+
+### High
+| ID | Location | Finding | Recommendation |
+|----|---|---|---|
+| SEC-002 | <file:line> | <description> | <fix> |
+
+### Medium
+| ID | Location | Finding | Recommendation |
+|----|---|---|---|
+| SEC-003 | <file:line> | <description> | <fix> |
+
+### Low
+| ID | Location | Finding | Recommendation |
+|----|---|---|---|
+| SEC-004 | <file:line> | <description> | <fix> |
+
+## Recommendations
+### Must Fix (Before Merge)
+1. [ ] <critical/high finding>
+2. [ ] <critical/high finding>
+
+### Should Fix (Soon)
+1. [ ] <medium finding>
+
+### Could Fix (Later)
+1. [ ] <low finding>
+
+## Sign-off
+**Security Status:** ✓ APPROVED | ⚠ APPROVED WITH CONDITIONS | ✗ REJECTED
+
+**Conditions:**
+- <condition 1>
+- <condition 2>
+
+**Security Reviewer:** <agent-name>
+```
+
+### 4. Checkpoint
+```bash
+checkpoint --phase custom --description "Security review complete for $TASK_ID" \
+    --next "Address findings before merging"
+```

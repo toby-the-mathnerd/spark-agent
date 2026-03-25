@@ -1,0 +1,150 @@
+# skill: security-scan
+# purpose: Run automated security scans (Security Persona - Phase 3)
+# triggers: Before shipping
+
+## Invocation
+```
+security-scan <task-id> [--target <code-directory>] [--all-scans]
+```
+
+## Output
+Creates: `memory/tasks/<task-id>/security-scan-results.md`
+
+## Implementation Flow
+
+### 1. Run All Scans
+```bash
+#!/bin/bash
+# security-scan.skill implementation
+
+TASK_ID="$1"
+TARGET="${2:-.}"
+
+echo "========================================="
+echo "Running Security Scans for $TASK_ID"
+echo "========================================="
+
+mkdir -p "memory/tasks/$TASK_ID/scans"
+
+# 1. Secret Detection
+echo "[1/6] Scanning for secrets..."
+if command -v gitleaks &> /dev/null; then
+    gitleaks detect --source "$TARGET" \
+        --report-path "memory/tasks/$TASK_ID/scans/gitleaks.json" \
+        --report-format json \
+        2>/dev/null
+else
+    echo "  gitleaks not found, skipping..."
+fi
+
+# 2. SAST (Static Analysis)
+echo "[2/6] Running SAST..."
+if command -v semgrep &> /dev/null; then
+    semgrep scan "$TARGET" --config auto \
+        --output "memory/tasks/$TASK_ID/scans/semgrep.json" \
+        --json 2>/dev/null
+else
+    echo "  semgrep not found, skipping..."
+fi
+
+# 3. Dependency Scanning - Python
+echo "[3/6] Checking Python dependencies..."
+if [ -f "$TARGET/requirements.txt" ] && command -v pip-audit &> /dev/null; then
+    pip-audit -r "$TARGET/requirements.txt" \
+        --format json \
+        > "memory/tasks/$TASK_ID/scans/pip-audit.json" 2>/dev/null
+fi
+
+# 4. Dependency Scanning - Node.js
+echo "[4/6] Checking Node.js dependencies..."
+if [ -f "$TARGET/package.json" ] && command -v npm &> /dev/null; then
+    npm audit --json \
+        > "memory/tasks/$TASK_ID/scans/npm-audit.json" 2>/dev/null
+fi
+
+# 5. Infrastructure Scanning
+echo "[5/6] Checking infrastructure files..."
+if command -v checkov &> /dev/null; then
+    checkov -d "$TARGET" \
+        --report-format json \
+        --output-file-path "memory/tasks/$TASK_ID/scans/checkov.json" 2>/dev/null
+fi
+
+# 6. Container Scanning
+echo "[6/6] Checking Dockerfiles..."
+if command -v hadolint &> /dev/null; then
+    find "$TARGET" -name "Dockerfile*" -exec hadolint {} \; \
+        > "memory/tasks/$TASK_ID/scans/hadolint.txt" 2>/dev/null
+fi
+
+echo "========================================="
+echo "Scans complete. Results in:"
+echo "  memory/tasks/$TASK_ID/scans/"
+echo "========================================="
+```
+
+### 2. Generate Scan Report
+```bash
+generate_scan_report() {
+    local task_id="$1"
+
+    cat > "memory/tasks/$task_id/security-scan-results.md" << EOF
+# Security Scan Results: $task_id
+
+## Scan Summary
+**Task:** $task_id
+**Scanned:** \$(date +%Y-%m-%d)
+**Target:** $TARGET
+
+## Results Overview
+
+| Scan | Tool | Issues | Status |
+|------|------|--------|---|
+| Secrets | gitleaks | <n> | ✓/✗ |
+| SAST | semgrep | <n> | ✓/✗ |
+| Python deps | pip-audit | <n> | ✓/✗ |
+| Node deps | npm audit | <n> | ✓/✗ |
+| Infra | checkov | <n> | ✓/✗ |
+| Docker | hadolint | <n> | ✓/✗ |
+
+## Critical Findings
+\`\`\`
+<from gitleaks results>
+\`\`\`
+
+## High Findings
+\`\`\`
+<from semgrep/npm-audit results>
+\`\`\`
+
+## Medium Findings
+\`\`\`
+<from all scans>
+\`\`\`
+
+## Detailed Results
+See individual scan results in \`memory/tasks/$task_id/scans/\`
+
+## Recommendations
+1. Address all critical findings before merge
+2. Review and remediate high-priority findings
+3. Schedule medium/low priority fixes
+
+## Sign-off
+**Security Scan Status:** ✓ PASS | ⚠ WARNINGS | ✗ FAIL
+
+**Approved for merge:** Yes/No
+EOF
+}
+```
+
+### 3. Checkpoint
+```bash
+if [ "$CRITICAL_ISSUES" -eq 0 ]; then
+    checkpoint --phase custom --description "Security scans passed for $TASK_ID" \
+        --next "Ready for final review"
+else
+    checkpoint --phase custom --description "Security scans found $CRITICAL_ISSUES critical issues" \
+        --next "Remediate issues before shipping"
+fi
+```

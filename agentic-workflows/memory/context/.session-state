@@ -1,0 +1,27 @@
+# Current Session State
+
+**Session ID:** {{session_id}}
+**Started:** {{timestamp}}
+**Active Task:** {{task_id}}
+**Current Persona:** {{persona}}
+**Current Phase:** {{phase}}
+
+## Active Skills Loaded
+- {{skill_1}}
+- {{skill_2}}
+
+## Memory Contents
+### Task Memory
+- `input.json` - Original task
+- `review.md` - Requirements analysis
+- ...
+
+### Design Memory
+- `design.md` - Architecture (if applicable)
+
+## Working Directory
+`~/claude-workspace/`
+
+## Git State
+- Current branch: `{{branch}}`
+- Last commit: `{{commit}}`

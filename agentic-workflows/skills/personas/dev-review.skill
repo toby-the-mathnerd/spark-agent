@@ -1,0 +1,131 @@
+# skill: dev-review
+# purpose: Analyze and clarify task requirements (RPOLES Phase 1: REVIEW)
+# triggers: Task routed to Developer persona
+
+## Invocation
+```
+dev-review <task-id> [--deep-dive]
+```
+
+## Output
+Creates: `memory/tasks/<task-id>/review.md`
+
+## Implementation Flow
+
+### 1. Load Task and Context
+```bash
+#!/bin/bash
+# dev-review.skill implementation
+
+TASK_ID="$1"
+DEEP_DIVE="${2:-}"
+
+# Load task
+TASK_FILE="memory/tasks/$TASK_ID/input.json"
+if [ ! -f "$TASK_FILE" ]; then
+    echo "Error: Task not found: $TASK_ID"
+    exit 1
+fi
+
+TASK=$(cat "$TASK_FILE")
+
+# Gather context
+DESIGN_FILE="memory/designs/$TASK_ID/design.md"
+EXISTING_CONTEXT=$(memory-lookup --context "$TASK_ID" --related "$(echo $TASK | jq -r '.dependencies[]' 2>/dev/null)")
+```
+
+### 2. Requirements Analysis
+```markdown
+# Review: <task-id>
+
+## Task Summary
+**ID:** $TASK_ID
+**Type:** $(echo $TASK | jq -r '.type')
+**Priority:** $(echo $TASK | jq -r '.priority // "normal"')
+
+## Requirements Extracted
+### Explicit Requirements
+1. <requirement from task>
+2. <requirement from task>
+
+### Implicit Requirements
+- <inferred from context>
+- <inferred from type>
+
+## Acceptance Criteria
+$(echo $TASK | jq -r '.acceptance_criteria[]' 2>/dev/null || echo "None specified")
+
+## Constraints
+$(echo $TASK | jq -r '.constraints[]' 2>/dev/null || echo "None specified")
+
+## Context Analysis
+$(if [ -f "$DESIGN_FILE" ]; then
+    echo "### Design Reference"
+    head -50 "$DESIGN_FILE"
+fi)
+
+## Ambiguities Identified
+| # | Ambiguity | Impact | Question |
+|---|---|---|--|
+| 1 | <what is unclear> | <high/med/low> | <clarification needed> |
+
+## Related Components
+```bash
+# Find potentially affected files
+affected=$(find . -type f \( -name "*.py" -o -name "*.js" -o -name "*.ts" -o -name "*.yaml" -o -name "*.yml" \) \
+    -exec grep -l "$(echo $TASK | jq -r '.description | split(" ")[:3] | join(" ")' 2>/dev/null)" {} \; 2>/dev/null | head -20)
+echo "$affected"
+```
+
+## Risk Assessment
+| Risk | Likelihood | Impact | Mitigation |
+|------|---|---|---|
+| <risk> | <H/M/L> | <H/M/L> | <mitigation> |
+
+## Clarifications Needed
+$(if [ -n "$AMBIGUITIES" ]; then
+    echo "1. <question 1>"
+    echo "2. <question 2>"
+else
+    echo "No clarifications needed"
+fi)
+
+## Review Decision
+**Status:** ✓ READY | ⚠ NEEDS CLARIFICATION | ✗ NEEDS MORE INFO
+
+**Recommendation:**
+- [ ] Proceed to planning
+- [ ] Wait for clarifications
+- [ ] Request more context
+```
+
+### 3. Create Review Document
+```bash
+mkdir -p "memory/tasks/$TASK_ID"
+cat > "memory/tasks/$TASK_ID/review.md" << EOF
+$REVIEW_REPORT
+EOF
+```
+
+### 4. Checkpoint
+```bash
+if [ "$STATUS" = "READY" ]; then
+    checkpoint --phase review --description "Requirements reviewed, ready for planning" \
+        --next "Proceed to dev-plan"
+else
+    checkpoint --phase review --description "Requirements reviewed, clarifications needed" \
+        --next "Awaiting clarifications before planning"
+fi
+```
+
+### 5. Output
+```json
+{
+    "task_id": "$TASK_ID",
+    "review_status": "$STATUS",
+    "clarifications": [...],
+    "affected_components": [...],
+    "risks": [...],
+    "ready_for_planning": true/false
+}
+```

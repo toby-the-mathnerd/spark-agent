@@ -1,0 +1,163 @@
+# skill: security-hardening
+# purpose: Apply security improvements (Security Persona - Phase 4)
+# triggers: Security issues identified
+
+## Invocation
+```
+security-hardening <task-id> [--findings <findings-file>] [--auto-fix]
+```
+
+## Output
+Creates: Hardened code, updated configurations
+
+## Implementation Flow
+
+### 1. Load Findings
+```bash
+#!/bin/bash
+# security-hardening.skill implementation
+
+TASK_ID="$1"
+FINDINGS_FILE="${2:-memory/tasks/$TASK_ID/security-review.md}"
+AUTO_FIX="${3:-false}"
+
+if [ ! -f "$FINDINGS_FILE" ]; then
+    echo "Error: Security findings file not found"
+    exit 1
+fi
+```
+
+### 2. Common Hardening Patterns
+```python
+# Example: Input validation hardening
+def secure_input_validation(user_input: str) -> str:
+    """
+    Secure input validation with multiple checks.
+
+    Before (vulnerable):
+        def process_input(user_input):
+            return user_input  # No validation
+
+    After (secure):
+        def secure_input_validation(user_input: str) -> str:
+            # Strip whitespace
+            user_input = user_input.strip()
+
+            # Check length
+            if len(user_input) > MAX_LENGTH:
+                raise ValidationError("Input too long")
+
+            # Check for dangerous characters/patterns
+            dangerous_patterns = ['<script', 'javascript:', 'onerror=']
+            for pattern in dangerous_patterns:
+                if pattern in user_input.lower():
+                    raise ValidationError("Invalid input detected")
+
+            # Sanitize
+            user_input = html.escape(user_input)
+
+            return user_input
+"""
+
+# Example: SQL injection prevention
+def secure_database_query(user_input: str):
+    """
+    Secure database query with parameterization.
+
+    Before (vulnerable):
+        cursor.execute(f"SELECT * FROM users WHERE name = '{user_input}'")
+
+    After (secure):
+        cursor.execute("SELECT * FROM users WHERE name = %s", (user_input,))
+"""
+
+# Example: Secure secret handling
+import os
+from dotenv import load_dotenv
+
+# Before (vulnerable):
+# API_KEY = "sk-1234567890abcdef"  # Hardcoded secret
+
+# After (secure):
+load_dotenv()  # Load from .env
+
+class SecureConfig:
+    API_KEY = os.getenv("API_KEY")
+    DATABASE_URL = os.getenv("DATABASE_URL")
+    SECRET_KEY = os.getenv("SECRET_KEY")
+
+    @classmethod
+    def validate(cls):
+        """Validate all required secrets are set"""
+        missing = []
+        if not cls.API_KEY:
+            missing.append("API_KEY")
+        if not cls.DATABASE_URL:
+            missing.append("DATABASE_URL")
+        if not cls.SECRET_KEY:
+            missing.append("SECRET_KEY")
+
+        if missing:
+            raise ValueError(f"Missing required secrets: {missing}")
+```
+
+### 3. Apply Hardening
+```bash
+apply_hardening() {
+    local findings="$1"
+    local auto_fix="$2"
+
+    # Parse findings and apply fixes
+    while IFS= read -r finding; do
+        category=$(echo "$finding" | cut -d'|' -f1)
+        location=$(echo "$finding" | cut -d'|' -f2)
+        fix=$(echo "$finding" | cut -d'|' -f3)
+
+        case "$category" in
+            "input-validation")
+                apply_input_validation "$location" "$fix"
+                ;;
+            "authentication")
+                apply_auth_fixes "$location" "$fix"
+                ;;
+            "secrets")
+                remove_hardcoded_secrets "$location"
+                create_env_template
+                ;;
+            "encryption")
+                apply_encryption "$location" "$fix"
+                ;;
+        esac
+    done <<< "$findings"
+}
+
+remove_hardcoded_secrets() {
+    local location="$1"
+
+    # Find hardcoded secrets
+    grep -n '"sk-[a-zA-Z0-9]\{32,\}"' "$location" 2>/dev/null
+    grep -n '"AKIA[A-Z0-9]\{16,\}"' "$location" 2>/dev/null
+    grep -n '"ghp_[a-zA-Z0-9]\{36,\}"' "$location" 2>/dev/null
+
+    # Replace with environment variable references
+    sed -i 's/"sk-[a-zA-Z0-9]\{32,\}"/os.getenv("API_KEY")/g' "$location"
+}
+
+create_env_template() {
+    if [ ! -f ".env.example" ]; then
+        cat > .env.example << 'EOF'
+# Copy this file to .env and fill in your values
+API_KEY=your_api_key_here
+DATABASE_URL=postgresql://user:password@localhost/dbname
+SECRET_KEY=your_secret_key_here
+EOF
+        echo "Created .env.example template"
+    fi
+}
+```
+
+### 4. Checkpoint
+```bash
+checkpoint --phase custom --description "Security hardening applied for $TASK_ID" \
+    --next "Re-run security scans to verify fixes"
+```

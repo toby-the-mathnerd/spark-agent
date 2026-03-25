@@ -1,0 +1,130 @@
+# skill: dev-locate
+# purpose: Find dependencies and existing patterns (RPOLES Phase 4: LOCATE)
+# triggers: Outline created
+
+## Invocation
+```
+dev-locate <task-id> [--outline <outline-file>] [--verbose]
+```
+
+## Output
+Creates: `memory/tasks/<task-id>/dependencies.md`
+
+## Implementation Flow
+
+### 1. Load Context
+```bash
+#!/bin/bash
+# dev-locate.skill implementation
+
+TASK_ID="$1"
+OUTLINE_FILE="${2:-memory/tasks/$TASK_ID/outline.md}"
+
+if [ ! -f "$OUTLINE_FILE" ]; then
+    echo "Error: Outline file not found. Run dev-outline first."
+    exit 1
+fi
+
+OUTLINE=$(cat "$OUTLINE_FILE")
+```
+
+### 2. Locate Dependencies
+```bash
+# Extract file list from outline
+FILES=$(grep "^### File:" "$OUTLINE_FILE" | sed 's/### File: //')
+
+# For each file, find dependencies
+for FILE in $FILES; do
+    # Find imports/references in existing codebase
+    DEPS=$(grep -r "$(basename $FILE)" --include="*.py" --include="*.js" --include="*.ts" . 2>/dev/null | head -20)
+
+    # Find similar patterns
+    SIMILAR=$(find . -name "*$(basename $FILE)*" -type f 2>/dev/null | head -10)
+
+    # Find related tests
+    TESTS=$(find . -name "*test*$(basename ${FILE%.*})*" -type f 2>/dev/null | head -10)
+done
+```
+
+### 3. Create Dependency Document
+```markdown
+# Dependencies: <task-id>
+
+## External Dependencies
+### Packages/Libraries
+| Package | Version | Purpose | Usage |
+|---|---|---|---|
+| <pkg> | <ver> | <what> | <where> |
+
+### Services/APIs
+| Service | Endpoint | Authentication | Rate Limit |
+|---|---|---|---|
+| <service> | <url> | <auth> | <limit> |
+
+## Internal Dependencies
+
+### Affected Files
+| File | Relationship | Impact |
+|------|---|---|
+| <path> | <imports|uses|modifies> | <high/med/low> |
+
+### Related Components
+```bash
+# Find related components
+grep -r "import.*$(component-name)" --include="*.py" --include="*.js" --include="*.ts" . 2>/dev/null | cut -d: -f1 | sort -u
+```
+
+## Code Patterns to Follow
+
+### Pattern: <pattern-name>
+**Location:** `path/to/example.py`
+
+**Example:**
+```python
+# Copy relevant pattern example
+def example_function(arg1, arg2):
+    """Example docstring"""
+    # Implementation pattern
+    result = process(arg1, arg2)
+    return validate(result)
+```
+
+**Usage Guidelines:**
+- Use this pattern when <condition>
+- Follow this style for <scenario>
+
+### Pattern: <pattern-name>
+...
+
+## Test Patterns
+```bash
+# Find existing test patterns
+find . -path ./node_modules -prune -o -name "*test*.py" -print 2>/dev/null | head -10
+```
+
+**Test Style Observed:**
+- Test file location: <pattern>
+- Test framework: <name>
+- Mocking approach: <approach>
+
+## Configuration Files to Update
+| File | Change |
+|------|---|
+| <path> | <add|modify> |
+
+## Import Map
+```
+# Map of imports to use
+from <module> import <class>  # Used in: <file>
+```
+
+## Conflicts/Issues
+| Issue | Severity | Resolution |
+|---|---|--|
+| <conflict> | <high/med/low> | <approach> |
+
+## Checkpoint
+```bash
+checkpoint --phase locate --description "Dependencies mapped for $TASK_ID" \
+    --next "Ready for dev-implement to begin coding"
+```

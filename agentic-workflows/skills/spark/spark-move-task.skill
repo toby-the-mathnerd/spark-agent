@@ -1,0 +1,129 @@
+# skill: spark-move-task
+# purpose: Move task between pending/active/blocked/done directories
+# triggers: State transition in workflow
+
+## Invocation
+```
+spark-move-task <task-id> --to <pending|active|blocked|done> [--reason <reason>]
+```
+
+## Implementation Flow
+
+### 1. Find Current Location
+```bash
+#!/bin/bash
+# spark-move-task.skill implementation
+
+TASK_ID="$1"
+TARGET_DIR="$2"
+REASON="${3:-}"
+SPARK_TASKS_DIR="$HOME/spark-tasks"
+
+# Find task file
+CURRENT_DIR=""
+TASK_FILE=""
+
+for dir in pending active blocked done; do
+    found=$(find "$SPARK_TASKS_DIR/tasks/$dir" -name "*task-$TASK_ID*.md" 2>/dev/null | head -1)
+    if [ -n "$found" ]; then
+        CURRENT_DIR="$dir"
+        TASK_FILE="$found"
+        break
+    fi
+done
+
+if [ -z "$TASK_FILE" ]; then
+    echo "Error: Task $TASK_ID not found in any directory"
+    exit 1
+fi
+
+echo "Found task in: $CURRENT_DIR"
+```
+
+### 2. Validate Transition
+```bash
+validate_transition() {
+    local from="$CURRENT_DIR"
+    local to="$TARGET_DIR"
+
+    # Valid transitions:
+    # pending -> active (claim task)
+    # active -> blocked (need input)
+    # active -> done (complete)
+    # blocked -> active (unblocked)
+
+    case "$from->$to" in
+        "pending->active")
+            echo "Valid: Claiming task"
+            ;;
+        "active->blocked")
+            echo "Valid: Requesting input"
+            ;;
+        "active->done")
+            echo "Valid: Task complete"
+            ;;
+        "blocked->active")
+            echo "Valid: Resuming work"
+            ;;
+        *)
+            echo "Invalid transition: $from -> $to"
+            exit 1
+            ;;
+    esac
+}
+```
+
+### 3. Execute Move
+```bash
+move_task() {
+    local from="$CURRENT_DIR"
+    local to="$TARGET_DIR"
+    local task_file="$TASK_FILE"
+
+    case "$to" in
+        "pending")
+            mv "$task_file" "$SPARK_TASKS_DIR/tasks/pending/"
+            ;;
+        "active")
+            mv "$task_file" "$SPARK_TASKS_DIR/tasks/active/"
+            # Create branch in workspace
+            git -C "$HOME/claude-workspace/agentic-workflows" checkout -b "task/$TASK_ID" 2>/dev/null || \
+            git -C "$HOME/claude-workspace/agentic-workflows" checkout "task/$TASK_ID" 2>/dev/null
+            ;;
+        "blocked")
+            mv "$task_file" "$SPARK_TASKS_DIR/tasks/blocked/"
+            ;;
+        "done")
+            mv "$task_file" "$SPARK_TASKS_DIR/tasks/done/"
+            ;;
+    esac
+
+    echo "Moved task to: $to/"
+}
+```
+
+### 4. Commit Changes
+```bash
+commit_move() {
+    local to="$TARGET_DIR"
+    local task_file=$(basename "$TASK_FILE")
+    local reason="$REASON"
+
+    git -C "$SPARK_TASKS_DIR" add "tasks/$to/$task_file"
+    git -C "$SPARK_TASKS_DIR" commit -m "[Spark 2] Task $TASK_ID -> $to/ $( [ -n "$reason" ] && echo \"($reason)\")"
+    git -C "$SPARK_TASKS_DIR" push
+
+    echo "Committed and pushed"
+}
+```
+
+### 5. Full Move Flow
+```bash
+# Main execution
+validate_transition
+move_task
+commit_move
+
+# Update STATUS.md
+echo "- $(date +%Y-%m-%d\ %H:%M): Task $TASK_ID moved to $to/" >> "$SPARK_TASKS_DIR/STATUS.md"
+```

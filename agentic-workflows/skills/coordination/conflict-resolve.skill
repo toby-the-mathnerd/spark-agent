@@ -1,0 +1,193 @@
+# skill: conflict-resolve
+# purpose: Resolve conflicts between agent actions
+# triggers: Conflict detected during task execution
+
+## Invocation
+```
+conflict-resolve <task-id> --conflict <conflict-description> \
+    [--resolution <resolution-strategy>]
+```
+
+## Output
+Creates: `memory/tasks/<task-id>/conflict-resolution.md`
+
+## Implementation Flow
+
+### 1. Detect Conflict
+```bash
+#!/bin/bash
+# conflict-resolve.skill implementation
+
+TASK_ID="$1"
+CONFLICT_TYPE="$2"
+CONFLICT_DETAILS="$3"
+
+# Common conflict types:
+# - git conflict: Branch has merge conflicts
+# - resource conflict: Multiple agents modifying same file
+# - dependency conflict: Conflicting requirements
+# - design conflict: Inconsistent design decisions
+```
+
+### 2. Git Conflict Resolution
+```bash
+resolve_git_conflict() {
+    local conflict_file="$1"
+    local strategy="$2"
+
+    case "$strategy" in
+        "ours")
+            # Keep our changes
+            git checkout --ours "$conflict_file"
+            git add "$conflict_file"
+            ;;
+        "theirs")
+            # Take incoming changes
+            git checkout --theirs "$conflict_file"
+            git add "$conflict_file"
+            ;;
+        "manual")
+            # Mark for manual resolution
+            echo "Manual conflict resolution required for: $conflict_file"
+            create_conflict_marker "$conflict_file"
+            ;;
+    esac
+}
+
+create_conflict_marker() {
+    local file="$1"
+
+    cat >> "$file" << EOF
+
+# CONFLICT RESOLUTION NEEDED
+# This file has merge conflicts that need manual resolution.
+# Use the following markers to identify conflicts:
+# <<<<<<< HEAD (our changes)
+# ======= (incoming changes)
+# >>>>>>> branch-name
+EOF
+}
+```
+
+### 3. Resource Conflict Resolution
+```bash
+resolve_resource_conflict() {
+    local file="$1"
+    local agents="$2"
+
+    # Create resolution document
+    cat > "memory/tasks/$TASK_ID/conflict-resolution.md" << EOF
+# Conflict Resolution: $TASK_ID
+
+## Conflict Type
+Resource Conflict: Multiple agents modifying \`$file\`
+
+## Agents Involved
+$agents
+
+## Resolution Strategy
+
+### Option 1: Sequential Processing
+- Agent A completes their changes first
+- Agent B rebases/applies changes after
+- Pros: Clean history, no conflicts
+- Cons: Slower execution
+
+### Option 2: Merge Changes
+- Both sets of changes are merged
+- Conflicts resolved manually
+- Pros: Both changes preserved
+- Cons: Requires careful review
+
+### Option 3: Partition Work
+- Split file into separate concerns
+- Each agent works on different section
+- Pros: No conflicts, parallel work
+- Cons: Requires refactoring
+
+## Recommended Action
+$(determine_resolution "$file" "$agents")
+
+## Resolution Steps
+1. $(get_first_step "$file")
+2. $(get_next_step)
+3. $(get_next_step)
+
+## Sign-off
+- [ ] Conflict resolved
+- [ ] Changes validated
+- [ ] Handoff completed
+EOF
+}
+```
+
+### 4. Dependency Conflict Resolution
+```bash
+resolve_dependency_conflict() {
+    local conflicts="$1"
+
+    cat > "memory/tasks/$TASK_ID/dependency-conflicts.md" << EOF
+# Dependency Conflicts: $TASK_ID
+
+## Conflicting Dependencies
+$conflicts
+
+## Analysis
+$(analyze_dependencies "$conflicts")
+
+## Resolution Options
+1. **Upgrade** - Update to compatible versions
+2. **Downgrade** - Use older compatible versions
+3. **Replace** - Find alternative packages
+4. **Isolate** - Use separate environments
+
+## Recommended Resolution
+$(suggest_resolution "$conflicts")
+
+## Implementation
+\`\`\`bash
+# Apply resolution
+# $(generate_fix_command "$conflicts")
+\`\`\`
+EOF
+}
+```
+
+### 5. Create Conflict Report
+```bash
+cat > "memory/tasks/$TASK_ID/conflict-resolution.md" << EOF
+# Conflict Resolution Report: $TASK_ID
+
+## Conflict Summary
+| Attribute | Value |
+|---|---|
+| Type | $CONFLICT_TYPE |
+| Detected | $(date +%Y-%m-%d) |
+| Severity | High/Medium/Low |
+
+## Details
+$CONFLICT_DETAILS
+
+## Resolution Applied
+$(cat "memory/tasks/$TASK_ID/.resolution" 2>/dev/null || "Pending")
+
+## Steps Taken
+1. <step 1>
+2. <step 2>
+
+## Verification
+- [ ] Conflicts resolved
+- [ ] Tests passing
+- [ ] No regressions introduced
+
+## Lessons Learned
+- <lesson 1>
+- <lesson 2>
+EOF
+```
+
+### 6. Checkpoint
+```bash
+checkpoint --phase custom --description "Conflict resolved for $TASK_ID" \
+    --next "Continue with normal workflow"
+```

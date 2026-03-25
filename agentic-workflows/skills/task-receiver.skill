@@ -1,0 +1,74 @@
+# skill: task-receiver
+# purpose: Parse and structure incoming tasks from openclaw spark
+# triggers: New task arrives via any channel
+
+## Invocation
+```
+task-receive <task-input> [--source <openclaw|manual>] [--priority <critical|high|normal|low>]
+```
+
+## Task Input Format (JSON)
+```json
+{
+    "id": "task-001",
+    "type": "feature|bugfix|refactor|infra|document",
+    "description": "What needs to be done",
+    "requirements": ["req1", "req2"],
+    "constraints": ["constraint1"],
+    "context": "Background information",
+    "acceptance_criteria": ["AC1", "AC2"],
+    "estimated_complexity": "low|medium|high|critical",
+    "dependencies": ["task-xxx"],
+    "output_format": "code|playbook|config|document"
+}
+```
+
+## Implementation
+```bash
+#!/bin/bash
+# task-receiver.skill implementation
+
+TASK_INPUT="$1"
+SOURCE="${2:-openclaw}"
+PRIORITY="${3:-normal}"
+
+# Parse and validate task
+parse_task() {
+    local input="$1"
+
+    # Validate JSON if applicable
+    if echo "$input" | jq empty 2>/dev/null; then
+        echo "$input" | jq '.'
+    else
+        # Try to parse as structured text
+        parse_structured_text "$input"
+    fi
+}
+
+# Store task in working state
+store_task() {
+    local parsed="$1"
+    local task_id=$(echo "$parsed" | jq -r '.id // "manual-"'$(date +%s))
+
+    mkdir -p memory/tasks/$task_id
+    echo "$parsed" > memory/tasks/$task_id/input.json
+
+    echo "$task_id"
+}
+
+# Main flow
+PARSED=$(parse_task "$TASK_INPUT")
+TASK_ID=$(store_task "$PARSED")
+
+echo "Task received: $TASK_ID"
+echo "Source: $SOURCE"
+echo "Priority: $PRIORITY"
+
+# Route to appropriate handler
+echo "$TASK_ID" > .current_task
+```
+
+## Checkpoint
+```bash
+checkpoint --phase custom --description "Task $TASK_ID received from $SOURCE" --next "Routing to task-router for assignment"
+```

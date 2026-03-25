@@ -1,0 +1,128 @@
+# skill: spark-submit-result
+# purpose: Submit completed task result to spark-tasks done/
+# triggers: Task completed via dev-ship
+
+## Invocation
+```
+spark-submit-result <task-id> [--summary <summary-text>]
+```
+
+## Implementation Flow
+
+### 1. Load Task Context
+```bash
+#!/bin/bash
+# spark-submit-result.skill implementation
+
+TASK_ID="$1"
+SPARK_TASKS_DIR="$HOME/spark-tasks"
+ACTIVE_DIR="$SPARK_TASKS_DIR/tasks/active"
+DONE_DIR="$SPARK_TASKS_DIR/tasks/done"
+WORKSPACE="$HOME/claude-workspace/agentic-workflows"
+
+TASK_FILE=$(find "$ACTIVE_DIR" -name "*task-$TASK_ID*.md" 2>/dev/null | head -1)
+
+if [ ! -f "$TASK_FILE" ]; then
+    echo "Error: Task file not found in active/"
+    exit 1
+fi
+```
+
+### 2. Finalize Task File
+```bash
+finalize_task_file() {
+    local task_file="$TASK_FILE"
+
+    # Update status to done
+    sed -i "s/\*\*Status\*\*: .*/\*\*Status\*\*: done/" "$task_file"
+
+    # Add result section
+    cat >> "$task_file" << EOF
+
+## Result
+$(cat "$WORKSPACE/tasks/$TASK_ID/result.md" 2>/dev/null || echo "Task completed successfully")
+
+## Agent Log
+$(cat "$WORKSPACE/tasks/$TASK_ID/agent-log.json" 2>/dev/null || echo "See session summary")
+
+## Checkpoints
+$(git log --oneline --all --grep="\[$TASK_ID\]" | head -10)
+EOF
+}
+```
+
+### 3. Write Session Summary
+```bash
+write_session_summary() {
+    local task_id="$TASK_ID"
+    local sessions_dir="$SPARK_TASKS_DIR/agents/sessions"
+    local runs_dir="$SPARK_TASKS_DIR/agents/runs"
+
+    mkdir -p "$sessions_dir" "$runs_dir"
+
+    SESSION_ID=$(cat "$WORKSPACE/tasks/$TASK_ID/.session_id" 2>/dev/null || date +%Y%m%d-%H%M%S)
+
+    # Write session summary JSON
+    cat > "$sessions_dir/$SESSION_ID.json" << EOF
+{
+    "session_id": "$SESSION_ID",
+    "task_id": "task-$task_id",
+    "model": "qwen3.5:122b-a10b",
+    "started": "$(cat "$WORKSPACE/tasks/$TASK_ID/.started" 2>/dev/null)",
+    "ended": "$(date -Iseconds)",
+    "total_tokens_in": $(cat "$WORKSPACE/tasks/$TASK_ID/.tokens_in" 2>/dev/null || echo 0),
+    "total_tokens_out": $(cat "$WORKSPACE/tasks/$TASK_ID/.tokens_out" 2>/dev/null || echo 0),
+    "total_duration_ms": $(cat "$WORKSPACE/tasks/$TASK_ID/.duration_ms" 2>/dev/null || echo 0),
+    "tool_calls": $(find "$runs_dir" -name "$SESSION_ID*.jsonl" -exec cat {} \; 2>/dev/null | wc -l),
+    "success": true,
+    "commits": $(git log --oneline --all --grep="\[$task_id\]" | wc -l),
+    "summary": "$(cat "$WORKSPACE/tasks/$TASK_ID/result.md" 2>/dev/null | head -5)"
+}
+EOF
+}
+```
+
+### 4. Move Task to done/
+```bash
+move_to_done() {
+    local task_file="$TASK_FILE"
+
+    # Move to done/
+    mv "$task_file" "$DONE_DIR/"
+
+    # Commit and push
+    git -C "$SPARK_TASKS_DIR" add "$DONE_DIR/$(basename $task_file)"
+    git -C "$SPARK_TASKS_DIR" commit -m "[Spark 2] Task $TASK_ID completed"
+    git -C "$SPARK_TASKS_DIR" push
+
+    echo "Task $TASK_ID moved to done/"
+}
+```
+
+### 5. Update STATUS.md
+```bash
+update_status_file() {
+    local task_id="$TASK_ID"
+
+    # Append to STATUS.md
+    cat >> "$SPARK_TASKS_DIR/STATUS.md" << EOF
+
+### $(date +%Y-%m-%d\ %H:%M)
+- **Task $TASK_ID**: Completed
+- Result: $(cat "$WORKSPACE/tasks/$TASK_ID/result.md" 2>/dev/null | head -1)
+EOF
+}
+```
+
+### 6. Cleanup Workspace
+```bash
+cleanup() {
+    local task_id="$TASK_ID"
+
+    # Archive task data
+    mkdir -p "$WORKSPACE/.archive/$task_id"
+    mv "$WORKSPACE/tasks/$task_id" "$WORKSPACE/.archive/$task_id/"
+
+    echo "Task $TASK_ID archived"
+}
+```

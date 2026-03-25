@@ -1,0 +1,170 @@
+# skill: dev-implement
+# purpose: Write actual code (RPOLES Phase 5: EXECUTE)
+# triggers: Dependencies located, ready to code
+
+## Invocation
+```
+dev-implement <task-id> [--outline <outline-file>] [--dependencies <deps-file>] [--file <specific-file>]
+```
+
+## Output
+Creates/Modifies: Source files + tests
+
+## Implementation Flow
+
+### 1. Load Context
+```bash
+#!/bin/bash
+# dev-implement.skill implementation
+
+TASK_ID="$1"
+OUTLINE_FILE="${2:-memory/tasks/$TASK_ID/outline.md}"
+DEPS_FILE="${3:-memory/tasks/$TASK_ID/dependencies.md}"
+
+if [ ! -f "$OUTLINE_FILE" ]; then
+    echo "Error: Outline file not found. Run dev-outline first."
+    exit 1
+fi
+
+OUTLINE=$(cat "$OUTLINE_FILE")
+```
+
+### 2. Implementation Strategy
+```bash
+# Process each file in outline
+process_file() {
+    local file="$1"
+    local action="$2"
+
+    case "$action" in
+        create)
+            create_file "$file"
+            ;;
+        modify)
+            modify_file "$file"
+            ;;
+        delete)
+            delete_file "$file"
+            ;;
+    esac
+}
+
+create_file() {
+    local file="$1"
+    local outline_section=$(extract_outline_section "$file" "$OUTLINE")
+
+    # Create directory if needed
+    mkdir -p "$(dirname "$file")"
+
+    # Generate file content from outline
+    cat > "$file" << EOF
+$(generate_file_content "$file" "$outline_section")
+EOF
+
+    # Create checkpoint
+    checkpoint --phase execute --description "Created $file"
+}
+
+modify_file() {
+    local file="$1"
+    local outline_section=$(extract_outline_section "$file" "$OUTLINE")
+
+    if [ ! -f "$file" ]; then
+        echo "Error: File not found for modification: $file"
+        return 1
+    fi
+
+    # Apply changes per outline
+    apply_modifications "$file" "$outline_section"
+
+    # Create checkpoint
+    checkpoint --phase execute --description "Modified $file"
+}
+```
+
+### 3. Self-Review Checklist
+```markdown
+# Self-Review: <task-id>/<file>
+
+## Code Quality
+- [ ] Code follows existing patterns (see dependencies.md)
+- [ ] Function names are descriptive
+- [ ] Functions are single-purpose
+- [ ] No code duplication
+- [ ] Comments explain "why", not "what"
+
+## Functionality
+- [ ] Implements all requirements from outline
+- [ ] Handles edge cases
+- [ ] Error handling is appropriate
+- [ ] Returns correct types/values
+
+## Testing
+- [ ] Tests written alongside code
+- [ ] Tests cover happy path
+- [ ] Tests cover edge cases
+- [ ] Tests are isolated
+
+## Security
+- [ ] No hardcoded secrets
+- [ ] Input validation present
+- [ ] No obvious vulnerabilities
+
+## Performance
+- [ ] No obvious inefficiencies
+- [ ] Appropriate data structures used
+- [ ] No unnecessary allocations
+
+## Documentation
+- [ ] Functions have docstrings
+- [ ] Complex logic is explained
+- [ ] API changes documented
+```
+
+### 4. Implementation Template
+```python
+# Template for new Python files (adapt per language)
+
+"""
+Module: <name>
+Task: $TASK_ID
+Created: $(date +%Y-%m-%d)
+
+Purpose: <from outline>
+"""
+
+# Imports (from dependencies.md)
+from <module> import <class>
+
+# Constants
+CONSTANT_NAME = "value"
+
+# Type definitions
+class <TypeName>:
+    """<brief description>"""
+
+    def __init__(self, <params>):
+        """Initialize <name>"""
+        <initialization>
+
+    def <method>(self, <params>) -> <return>:
+        """
+        <method description>
+
+        Args:
+            <param>: <description>
+
+        Returns:
+            <description>
+
+        Raises:
+            <ExceptionType>: <when>
+        """
+        <implementation>
+```
+
+### 5. Checkpoint
+```bash
+checkpoint --phase execute --description "Implementation complete for $TASK_ID" \
+    --next "Run tests and proceed to dev-test"
+```

@@ -1,0 +1,83 @@
+# skill: architect-decision-record
+# purpose: Create Architecture Decision Record (ADR) for major decisions
+# triggers: Architect makes significant architectural decision
+
+## Invocation
+```
+architect-adr --title "<decision title>" \
+    --status <proposed|accepted|rejected|superseded> \
+    --context "<context describing the problem>" \
+    --decision "<the decision made>" \
+    --consequences "<positive and negative consequences>" \
+    [--related-task <task-id>]
+```
+
+## Output
+Creates: `docs/adr/<YYYYMMDD-hhmmss-short-title>.md`
+
+## ADR Template
+```markdown
+# <YYYYMMDD>: <Short Decision Title>
+
+## Status
+<proposed | accepted | rejected | superseded>
+
+## Context
+<What is the issue that we're seeing that is motivating this decision? What is the
+history or background that led to this point?>
+
+### Problem Statement
+<Clear statement of the problem>
+
+### Influencing Factors
+- <factor 1>
+- <factor 2>
+
+## Decision
+<What is the change that we're proposing and/or doing?>
+
+### The Decision
+<Clear statement of the decision>
+
+### Implementation Details
+<How will this be implemented?>
+
+## Consequences
+<What becomes easier or more difficult to do because of this decision?>
+
+### Positive Consequences
+- <benefit 1>
+- <benefit 2>
+
+### Negative Consequences
+- <risk/drawback 1>
+- <risk/drawback 2>
+
+## Alternatives Considered
+1. <alternative 1>
+   - <why not chosen>
+2. <alternative 2>
+   - <why not chosen>
+
+## References
+- [Related task](<link>)
+- [Related PR](<link>)
+- <external references>
+```
+
+## Usage Example
+```bash
+architect-adr \
+    --title "Use PostgreSQL for session storage" \
+    --status proposed \
+    --context "Current in-memory session storage does not support horizontal scaling. Multiple instances cannot share sessions." \
+    --decision "Migrate to PostgreSQL-backed session storage with connection pooling" \
+    --consequences "Positive: Horizontal scaling enabled, sessions persist across restarts. Negative: Added dependency on PostgreSQL, added latency for session operations." \
+    --related-task task-001
+```
+
+## Auto-generated Checkpoint
+```bash
+checkpoint --phase plan --description "ADR created: $TITLE" \
+    --next "Awaiting architect approval before implementation"
+```

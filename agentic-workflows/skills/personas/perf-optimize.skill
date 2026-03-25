@@ -1,0 +1,182 @@
+# skill: perf-optimize
+# purpose: Apply performance improvements (Performance Persona - Phase 3)
+# triggers: Benchmarks show issues or optimization requested
+
+## Invocation
+```
+perf-optimize <task-id> [--benchmark <benchmark-file>] [--target <improvement-percent>]
+```
+
+## Output
+Creates: Optimized code + verification benchmarks
+
+## Implementation Flow
+
+### 1. Load Context
+```bash
+#!/bin/bash
+# perf-optimize.skill implementation
+
+TASK_ID="$1"
+BENCHMARK_FILE="${2:-memory/tasks/$TASK_ID/benchmark-results.md}"
+
+BENCHMARKS=$(cat "$BENCHMARK_FILE")
+```
+
+### 2. Common Optimizations
+```python
+# ============ OPTIMIZATION PATTERNS ============
+
+# 1. Database Query Optimization
+# Before (N+1 queries):
+for user in users:
+    posts = db.query("SELECT * FROM posts WHERE user_id = ?", user.id)
+    user.posts = posts
+
+# After (Joined query):
+users = db.query("""
+    SELECT u.*, p.*
+    FROM users u
+    LEFT JOIN posts p ON p.user_id = u.id
+    WHERE u.id IN %s
+""", [u.id for u in users], join_key='id')
+
+# 2. Caching
+from functools import lru_cache
+from cachetools import TTLCache
+
+@lru_cache(maxsize=1000)
+def expensive_computation(arg):
+    return compute(arg)
+
+# Or for TTL-based caching:
+cache = TTLCache(maxsize=100, ttl=300)  # 5 min TTL
+
+# 3. Connection Pooling
+from psycopg2 import pool
+
+db_pool = pool.SimpleConnectionPool(
+    minconn=1,
+    maxconn=10,
+    host="localhost",
+    database="mydb"
+)
+
+def get_connection():
+    return db_pool.getconn()
+
+def release_connection(conn):
+    db_pool.putconn(conn)
+
+# 4. Streaming/Lazy Loading
+# Before (loads all into memory):
+data = large_file.read().splitlines()
+
+# After (streaming):
+def process_large_file(path):
+    with open(path) as f:
+        for line in f:
+            yield process(line)
+
+# 5. Batch Operations
+# Before (individual inserts):
+for item in items:
+    db.insert(item)
+
+# After (batch insert):
+db.insert_many(items, batch_size=1000)
+
+# 6. Async I/O
+import asyncio
+
+# Before (synchronous):
+for url in urls:
+    data = fetch(url)  # Blocks
+    process(data)
+
+# After (async):
+async def fetch_all(urls):
+    async with aiohttp.ClientSession() as session:
+        tasks = [fetch(session, url) for url in urls]
+        return await asyncio.gather(*tasks)
+
+# 7. Algorithm Optimization
+# Before (O(n²)):
+for i in range(len(items)):
+    for j in range(len(items)):
+        if items[i] == items[j]:
+            ...
+
+# After (O(n)):
+seen = set()
+duplicates = set()
+for item in items:
+    if item in seen:
+        duplicates.add(item)
+    seen.add(item)
+
+# 8. Lazy Evaluation
+# Before (eager computation):
+result = [compute(x) ** 2 for x in range(1000000)]
+
+# After (lazy):
+result = (compute(x) ** 2 for x in range(1000000))
+```
+
+### 3. Apply Optimizations
+```bash
+apply_optimization() {
+    local task_id="$1"
+    local optimization_type="$2"
+    local location="$3"
+
+    case "$optimization_type" in
+        "cache")
+            add_caching "$location"
+            ;;
+        "database")
+            optimize_queries "$location"
+            ;;
+        "memory")
+            apply_streaming "$location"
+            ;;
+        "algorithm")
+            optimize_algorithm "$location"
+            ;;
+    esac
+}
+```
+
+### 4. Verify Improvements
+```bash
+verify_improvements() {
+    local task_id="$1"
+
+    echo "Running verification benchmarks..."
+
+    # Re-run benchmarks
+    perf-benchmark "$task_id"
+
+    # Compare results
+    local old_avg=$(grep "Average:" "memory/tasks/$task_id/benchmark-results.md" | head -1 | awk '{print $2}')
+    local new_avg=$(grep "Average:" "memory/tasks/$task_id/benchmark-verification.md" | head -1 | awk '{print $2}')
+
+    local improvement=$(echo "scale=2; (($old_avg - $new_avg) / $old_avg) * 100" | bc)
+
+    echo "Performance improvement: $improvement%"
+
+    if (( $(echo "$improvement > 10" | bc -l) )); then
+        echo "✓ Significant improvement achieved ($improvement%)"
+        return 0
+    else
+        echo "⚠ Minimal improvement ($improvement%)"
+        return 1
+    fi
+}
+```
+
+### 5. Checkpoint
+```bash
+checkpoint --phase custom --description "Performance optimizations applied for $TASK_ID" \
+    --next "Re-run benchmarks to verify improvements"
+```

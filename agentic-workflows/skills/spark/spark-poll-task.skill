@@ -1,0 +1,124 @@
+# skill: spark-poll-task
+# purpose: Poll spark-tasks repo for new tasks from Spark 1 (OpenClaw)
+# triggers: Run every 1 minute (systemd service)
+
+## Invocation
+```
+spark-poll-task [--check-interval <seconds>]
+```
+
+## Implementation Flow
+
+### 1. Poll Pending Tasks
+```bash
+#!/bin/bash
+# spark-poll-task.skill implementation
+
+SPARK_TASKS_DIR="$HOME/spark-tasks"
+WORKSPACE="$HOME/claude-workspace"
+PENDING_DIR="$SPARK_TASKS_DIR/tasks/pending"
+ACTIVE_DIR="$SPARK_TASKS_DIR/tasks/active"
+
+# Check for new tasks
+TASK=$(find "$PENDING_DIR" -name "task-*.md" -printf '%T@ %p\n' 2>/dev/null | sort -n | head -1 | cut -d' ' -f2-)
+
+if [ -z "$TASK" ]; then
+    echo "No pending tasks found"
+    exit 0
+fi
+
+# Extract task info
+TASK_FILE=$(basename "$TASK")
+TASK_ID=$(echo "$TASK_FILE" | sed 's/.*task-\([0-9]*\)\.md/\1/')
+
+echo "Found task: $TASK_FILE"
+```
+
+### 2. Claim Task
+```bash
+claim_task() {
+    local task_file="$1"
+    local active_dir="$ACTIVE_DIR"
+
+    # Move to active
+    mv "$task_file" "$active_dir/"
+
+    # Commit and push
+    git -C "$SPARK_TASKS_DIR" add "$active_dir/$TASK_FILE"
+    git -C "$SPARK_TASKS_DIR" commit -m "[Spark 2] Claiming task $TASK_ID"
+    git -C "$SPARK_TASKS_DIR" push
+
+    echo "Task $TASK_ID claimed"
+}
+```
+
+### 3. Create Local Working Copy
+```bash
+create_working_copy() {
+    local task_id="$TASK_ID"
+    local workspace="$WORKSPACE"
+
+    # Create workspace directory
+    mkdir -p "$workspace/agentic-workflows/tasks/$task_id"
+
+    # Copy task file
+    cp "$active_dir/$TASK_FILE" "$workspace/agentic-workflows/tasks/$task_id/"
+
+    # Create task metadata
+    cat > "$workspace/agentic-workflows/tasks/$task_id/input.json" << EOF
+{
+    "id": "task-$task_id",
+    "source": "spark-tasks",
+    "created": "$(date -Iseconds)",
+    "title": "$(grep "^# Task" "$active_dir/$TASK_FILE" | cut -d: -f2-)"
+}
+EOF
+}
+```
+
+### 4. Launch RPOLES Workflow
+```bash
+launch_workflow() {
+    local task_id="$TASK_ID"
+
+    echo "Launching RPOLES workflow for task $task_id"
+
+    # Route to appropriate persona
+    task-route "task-$task_id"
+
+    # Start the workflow
+    case "$(get_task_type "$active_dir/$TASK_FILE")" in
+        "infrastructure")
+            # Use Lobster workflows
+            run_infrastructure_task "$task_id"
+            ;;
+        "code")
+            # Use Developer persona
+            run_developer_task "$task_id"
+            ;;
+        *)
+            # Default RPOLES
+            run_rpoles_task "$task_id"
+            ;;
+    esac
+}
+```
+
+### 5. Update Status
+```bash
+update_status() {
+    local task_id="$TASK_ID"
+    local status="$1"
+
+    # Update task file in active/
+    sed -i "s/\*\*Status\*\*: .*/\*\*Status\*\*: $status/" "$ACTIVE_DIR/$TASK_FILE"
+
+    # Add timestamp update
+    echo "- $(date +%Y-%m-%d\ %H:%M): $status" >> "$ACTIVE_DIR/$TASK_FILE"
+
+    # Commit and push
+    git -C "$SPARK_TASKS_DIR" add "$ACTIVE_DIR/$TASK_FILE"
+    git -C "$SPARK_TASKS_DIR" commit -m "[Spark 2] Task $task_id: $status"
+    git -C "$SPARK_TASKS_DIR" push
+}
+```

@@ -1,0 +1,171 @@
+# skill: status-aggregate
+# purpose: Aggregate status across all agents/tasks
+# triggers: Status query or periodic report
+
+## Invocation
+```
+status-aggregate [--persona <persona>] [--since <date>] [--format <md|json>]
+```
+
+## Output
+Creates: `memory/status/status-report.md` or JSON
+
+## Implementation Flow
+
+### 1. Gather All Task States
+```bash
+#!/bin/bash
+# status-aggregate.skill implementation
+
+FORMAT="${1:-md}"
+SINCE="${2:-$(date +%Y-%m-%d)}"
+
+# Find all active tasks
+TASKS=$(find memory/tasks -maxdepth 1 -mindepth 1 -type d)
+```
+
+### 2. Generate Status Report
+```markdown
+# Aggregated Status Report
+**Generated:** $(date +%Y-%m-%d %H:%M:%S)
+**Since:** $SINCE
+
+## Executive Summary
+| Metric | Count |
+|--------|-------|
+| Total Tasks | $(echo $TASKS | wc -w) |
+| In Progress | <count> |
+| Completed | <count> |
+| Blocked | <count> |
+
+## Tasks by Persona
+
+### Architect
+$(for task in $TASKS; do
+    if [ "$(cat $task/routing.json 2>/dev/null | jq -r '.routed_to')" = "architect" ]; then
+        echo "- [$(basename $task)] $(cat $task/.status 2>/dev/null || 'unknown')"
+    fi
+done)
+
+### Developer
+$(for task in $TASKS; do
+    if [ "$(cat $task/routing.json 2>/dev/null | jq -r '.routed_to')" = "developer" ]; then
+        echo "- [$(basename $task)] $(cat $task/.status 2>/dev/null || 'unknown')"
+    fi
+done)
+
+### QA
+$(for task in $TASKS; do
+    if [ "$(cat $task/routing.json 2>/dev/null | jq -r '.routed_to')" = "qa" ]; then
+        echo "- [$(basename $task)] $(cat $task/.status 2>/dev/null || 'unknown')"
+    fi
+done)
+
+### Security
+$(for task in $TASKS; do
+    if [ "$(cat $task/routing.json 2>/dev/null | jq -r '.routed_to')" = "security" ]; then
+        echo "- [$(basename $task)] $(cat $task/.status 2>/dev/null || 'unknown')"
+    fi
+done)
+
+### Performance
+$(for task in $TASKS; do
+    if [ "$(cat $task/routing.json 2>/dev/null | jq -r '.routed_to')" = "performance" ]; then
+        echo "- [$(basename $task)] $(cat $task/.status 2>/dev/null || 'unknown')"
+    fi
+done)
+
+## Pipeline Status
+```
+     ╭────────────╮
+     │  Receive   │
+     ╰─────┬──────╯
+           ▼
+     ╭────────────╮
+     │   Route    │
+     ╰─────┬──────╯
+           ▼
+     ╭────────────╮
+     │  Review    │
+     ╰─────┬──────╯
+           ▼
+     ╭────────────╮
+     │   Plan     │
+     ╰─────┬──────╯
+           ▼
+     ╭────────────╮
+     │  Outline   │
+     ╰─────┬──────╯
+           ▼
+     ╭────────────╮
+     │  Locate    │
+     ╰─────┬──────╯
+           ▼
+     ╭────────────╮
+     │ Execute    │
+     ╰─────┬──────╯
+           ▼
+     ╭────────────╮
+     │   Ship     │
+     ╰────────────╯
+```
+
+## Blocked Tasks
+| Task ID | Blocked By | Reason | Age |
+|---------|---|---|---|
+| <task> | <agent|external> | <reason> | <days> |
+
+## Recent Checkpoints
+$(git log --oneline --all --since="$SINCE" | grep -E "\[rpoles|persona|custom\]" | head -20)
+
+## Active Handoffs
+| Task ID | From | To | Status |
+|---|---|---|-|
+| <task> | <agent> | <agent> | Pending/Complete |
+
+## Bottlenecks
+| Stage | Avg Time | Current Queue |
+|-------|----------|---|
+| Review | <hrs> hrs | <n> |
+| Plan | <hrs> hrs | <n> |
+| Execute | <hrs> hrs | <n> |
+| Ship | <hrs> hrs | <n> |
+
+## Recommendations
+1. <recommendation based on bottlenecks>
+2. <recommendation>
+```
+
+### 3. JSON Output
+```json
+{
+  "report_time": "$(date -Iseconds)",
+  "total_tasks": <count>,
+  "by_persona": {
+    "architect": <count>,
+    "developer": <count>,
+    "qa": <count>,
+    "security": <count>,
+    "performance": <count>
+  },
+  "by_status": {
+    "pending": <count>,
+    "in_progress": <count>,
+    "blocked": <count>,
+    "completed": <count>
+  },
+  "blocked_tasks": [...],
+  "recent_commits": [...],
+  "bottlenecks": [...]
+}
+```
+
+### 4. Output
+```bash
+if [ "$FORMAT" = "json" ]; then
+    # Output JSON
+    jq -n "$JSON_DATA"
+else
+    cat "memory/status/status-report.md"
+fi
+```

@@ -1,0 +1,125 @@
+# skill: handoff-prepare
+# purpose: Prepare work for handoff between agents/personas
+# triggers: Agent needs to pass work to another
+
+## Invocation
+```
+handoff-prepare <task-id> --from <source-agent> --to <target-agent> \
+    [--notes <handoff-notes>]
+```
+
+## Output
+Creates: `memory/tasks/<task-id>/handoff.md`
+
+## Implementation Flow
+
+### 1. Gather State
+```bash
+#!/bin/bash
+# handoff-prepare.skill implementation
+
+TASK_ID="$1"
+FROM_AGENT="$2"
+TO_AGENT="$3"
+NOTES="${4:-}"
+
+# Gather all artifacts
+TASK=$(cat "memory/tasks/$TASK_ID/input.json" 2>/dev/null)
+CURRENT_PHASE=$(cat "memory/tasks/$TASK_ID/.current_phase" 2>/dev/null)
+```
+
+### 2. Generate Handoff Document
+```markdown
+# Handoff: {{task_id}}
+
+## Handoff Details
+**From:** {{from_agent}}
+**To:** {{to_agent}}
+**Date:** {{date}}
+**Task:** {{task_id}}
+
+## Current State
+
+### Task Summary
+$(cat "memory/tasks/$TASK_ID/input.json" | jq -r '.description')
+
+### Completed Work
+$(git log --oneline --grep="\[$TASK_ID\]" | head -10)
+
+### Artifacts Created
+$(find memory/tasks/$TASK_ID -type f -name "*.md" | sed 's/memory\/tasks\//  - /')
+
+### Checkpoints
+$(git log --oneline --all | grep "\[$TASK_ID\]" | head -20)
+
+## What's Done
+| Phase | Status | Notes |
+|-------|--------|---|
+| Review | ✓ | |
+| Plan | ✓ | |
+| Outline | ✓ | |
+| Locate | ✓ | |
+| Execute | ✓/✗ | |
+| Ship | ✓/✗ | |
+
+## What's Next
+$(cat "memory/tasks/$TASK_ID/.next_steps" 2>/dev/null || "See task context")
+
+## Pending Items
+| Item | Priority | Blocker |
+|------|---|---|
+| <item> | H/M/L | <yes/no> |
+
+## Context Notes
+$(if [ -n "$NOTES" ]; then
+    echo "$NOTES"
+else
+    echo "No additional notes"
+fi)
+
+## Known Issues
+| Issue | Impact | Mitigation |
+|-------|--------|---|
+| <issue> | H/M/L | <mitigation> |
+
+## Dependencies
+| Dependency | Status |
+|---|---|
+| <dependency> | ✓/✗ |
+
+## Files Modified
+$(git diff --name-only HEAD~5 | head -20)
+
+## Environment
+- Working branch: $(git branch --show-current)
+- Last commit: $(git log -1 --oneline)
+- Working directory: $(pwd)
+
+## Action Required
+- [ ] Review handoff document
+- [ ] Check all artifacts
+- [ ] Address known issues
+- [ ] Continue with next phase
+
+## Contact
+Questions? Reference:
+- Task: memory/tasks/$TASK_ID/
+- Design: memory/designs/$TASK_ID/ (if exists)
+- Git history: git log --all --grep="$TASK_ID"
+```
+
+### 3. Create Handoff Record
+```bash
+mkdir -p "memory/personas/$TO_AGENT/handoffs"
+cp "memory/tasks/$TASK_ID/handoff.md" "memory/personas/$TO_AGENT/handoffs/$TASK_ID.md"
+
+# Update task state
+echo "$TO_AGENT" > "memory/tasks/$TASK_ID/.assigned_to"
+echo "$(date -Iseconds)" > "memory/tasks/$TASK_ID/.handoff_at"
+```
+
+### 4. Checkpoint
+```bash
+checkpoint --phase custom --description "Handoff prepared: $TASK_ID from $FROM_AGENT to $TO_AGENT" \
+    --next "$TO_AGENT resumes work"
+```

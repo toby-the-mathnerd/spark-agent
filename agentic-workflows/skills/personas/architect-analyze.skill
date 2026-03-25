@@ -1,0 +1,124 @@
+# skill: architect-analyze
+# purpose: High-level system analysis and design for new features or major changes
+# triggers: Task routed to Architect persona
+
+## Invocation
+```
+architect-analyze <task-id> [--existing-design <design-file>]
+```
+
+## Output
+Creates: `memory/designs/<task-id>/design.md`
+
+## Implementation Flow
+
+### 1. Gather Context
+```bash
+# Load task requirements
+TASK=$(cat "memory/tasks/$TASK_ID/input.json")
+
+# Look up related memories
+design-memory=$(memory-lookup --category design --tags $(echo $TASK | jq -r '.tags[]'))
+history=$(git log --oneline --all --grep=$(echo $TASK | jq -r '.type') | head -20)
+
+# Find related components
+affected_components=$(grep -r "$(echo $TASK | jq -r '.description')" --include="*.md" docs/ 2>/dev/null | cut -d: -f1 | sort -u)
+```
+
+### 2. Create Design Document Structure
+```markdown
+# Design: <feature-name>
+
+## Overview
+<brief description of what this change accomplishes>
+
+## Context
+- **Task:** $TASK_ID
+- **Date:** $(date +%Y-%m-%d)
+- **Architect:** <agent-name>
+
+## Requirements
+<list from task>
+
+## Proposed Architecture
+
+### High-Level Diagram
+[ASCII or description of component relationships]
+
+### Component Changes
+| Component | Change Type | Description |
+|-----------|-------------|-------------|
+| <name> | <add|modify|delete> | <what changes> |
+
+### Data Flow
+<describe how data moves through the system>
+
+### Interfaces
+<new or modified APIs, configs, contracts>
+
+## Dependencies
+<external and internal dependencies>
+
+## Alternatives Considered
+1. <alternative A> - <why not chosen>
+2. <alternative B> - <why not chosen>
+
+## Risks
+| Risk | Impact | Mitigation |
+|------|--------|------------|
+| <risk> | <high|med|low> | <mitigation> |
+
+## Test Strategy
+<high-level testing approach>
+
+## Rollout Plan
+1. <step 1>
+2. <step 2>
+
+## Success Metrics
+- <metric 1>
+- <metric 2>
+
+## Approval
+- [ ] Architect review
+- [ ] Developer acknowledgment
+- [ ] Security review (if applicable)
+```
+
+### 3. Create ADR if Major Decision
+```bash
+# Only create ADR for significant architectural decisions
+if is_major_decision "$TASK"; then
+    architect-decision-record \
+        --title "Decision: $(echo $TASK | jq -r '.description')" \
+        --status proposed \
+        --context "<context>" \
+        --decision "<decision>" \
+        --consequences "<consequences>"
+fi
+```
+
+### 4. Checkpoint
+```bash
+checkpoint --phase plan --description "Design document created for $TASK_ID" \
+    --next "Handoff to Developer for implementation planning"
+```
+
+## Handoff
+```bash
+# Create implementation brief for Developer
+cat > "memory/personas/developer/inbox/$TASK_ID-impl-brief.md" << EOF
+# Implementation Brief: $(echo $TASK | jq -r '.id')
+
+## Design Reference
+See: memory/designs/$TASK_ID/design.md
+
+## Key Points for Implementation
+1. <priority 1>
+2. <priority 2>
+
+## Design Approval
+- [ ] Design reviewed
+- [ ] Ready for RPOLES execution
+EOF
+```

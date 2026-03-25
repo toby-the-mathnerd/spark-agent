@@ -1,0 +1,115 @@
+# skill: qa-report
+# purpose: Generate quality report (QA Persona - Phase 4)
+# triggers: Validation complete
+
+## Invocation
+```
+qa-report <task-id> [--validation <validation-file>] [--format <md|json>]
+```
+
+## Output
+Creates: `memory/tasks/<task-id>/quality-report.md` or JSON
+
+## Implementation Flow
+
+### 1. Load Context
+```bash
+#!/bin/bash
+# qa-report.skill implementation
+
+TASK_ID="$1"
+VALIDATION_FILE="${2:-memory/tasks/$TASK_ID/validation-report.md}"
+
+if [ ! -f "$VALIDATION_FILE" ]; then
+    echo "Error: Validation report not found"
+    exit 1
+fi
+
+VALIDATION=$(cat "$VALIDATION_FILE")
+```
+
+### 2. Generate Quality Report
+```markdown
+# Quality Report: <task-id>
+
+## Executive Summary
+| Metric | Status |
+|--------|--------|
+| Overall Quality | ✓ PASS | ⚠ WARN | ✗ FAIL |
+| Test Pass Rate | <rate>% |
+| Code Coverage | <coverage>% |
+| Critical Issues | <count> |
+
+## Detailed Results
+
+### Test Coverage
+$(grep -A 20 "## Failed Tests" "$VALIDATION_FILE" | head -25)
+
+### Code Quality Metrics
+| Metric | Value | Threshold | Status |
+|--------|-------|---|---|
+| Test Coverage | <coverage>% | 80% | ✓/✗ |
+| Test Pass Rate | <rate>% | 100% | ✓/✗ |
+| Code Smells | <count> | 0 | ✓/✗ |
+| Security Issues | <count> | 0 | ✓/✗ |
+
+### Risk Assessment
+| Risk | Level | Mitigated |
+|------|-------|---|
+| <risk> | <H/M/L> | ✓/✗ |
+
+### Acceptance Criteria Status
+| AC | Status | Evidence |
+|----|---|---|
+| AC1 | ✓ PASS | [Test results](#) |
+| AC2 | ✓ PASS | [Test results](#) |
+
+### Defects Found
+| ID | Severity | Description | Status |
+|----|---|---|---|
+| DEF-1 | <H/M/L> | <description> | Fixed/Open |
+
+## Recommendations
+### Must Fix (Blocking)
+- [ ] <blocking item 1>
+- [ ] <blocking item 2>
+
+### Should Fix (Recommended)
+- [ ] <item 1>
+- [ ] <item 2>
+
+### Could Fix (Nice to Have)
+- [ ] <item 1>
+- [ ] <item 2>
+
+## Approval
+**QA Sign-off:** ✓ APPROVED | ⚠ APPROVED WITH NOTES | ✗ REJECTED
+
+**Notes:**
+<any additional notes for stakeholders>
+
+**Generated:** $(date +%Y-%m-%d)
+**QA Engineer:** <agent-name>
+```
+
+### 3. Output
+```bash
+FORMAT="${2:-md}"
+
+if [ "$FORMAT" = "json" ]; then
+    # Output JSON format
+    jq -n \
+        --arg task_id "$TASK_ID" \
+        --arg pass_rate "$PASSED_RATE" \
+        --arg coverage "$COVERAGE" \
+        --arg status "$STATUS" \
+        '{
+            task_id: $task_id,
+            quality_status: $status,
+            test_pass_rate: $pass_rate,
+            code_coverage: $coverage
+        }'
+else
+    cat "memory/tasks/$TASK_ID/quality-report.md"
+fi
+```
