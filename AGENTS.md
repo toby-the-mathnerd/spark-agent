@@ -90,3 +90,15 @@ A Result that just says "Task completed" is a CRITICAL FAILURE.
 - Never go more than 5 minutes without committing if actively working
 - If a task has no updates for 10 minutes, write a status update to the task file
 - All code goes in ~/claude-workspace/ not in spark-tasks
+
+## Exploration Rules
+Before reading or writing any file:
+1. Always start with a directory listing to confirm paths exist:
+   bash: ls -la <parent directory>
+2. Never guess a path — verify it exists first
+3. If a path doesn't exist after 2 attempts, use find:
+   bash: find ~ -name "<filename>" 2>/dev/null
+4. Map the full directory structure ONCE at the start of a task:
+   bash: find ~/spark-tasks -type f -name "*.py" | head -30
+   bash: find ~/spark-tasks -type d | head -20
+5. Do not repeat directory listing calls for the same path
