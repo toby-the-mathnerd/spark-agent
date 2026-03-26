@@ -102,3 +102,12 @@ Before reading or writing any file:
    bash: find ~/spark-tasks -type f -name "*.py" | head -30
    bash: find ~/spark-tasks -type d | head -20
 5. Do not repeat directory listing calls for the same path
+
+## Blocked Task Requirements
+When calling task_blocked the question field MUST include:
+1. What the task objective was
+2. What was attempted (specific commands/files)
+3. What error or problem occurred (exact error message)
+4. What specific input or decision is needed from Toby
+
+A task_blocked call with a vague or empty question is a CRITICAL FAILURE.
