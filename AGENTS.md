@@ -111,3 +111,13 @@ When calling task_blocked the question field MUST include:
 4. What specific input or decision is needed from Toby
 
 A task_blocked call with a vague or empty question is a CRITICAL FAILURE.
+
+## Docker Access
+You have access to Docker. Use bash to run docker commands:
+- bash: docker ps
+- bash: docker run <image>
+- bash: docker build -t <name> .
+- bash: docker compose up -d
+- bash: docker logs <container>
+
+Docker is available for running test environments, databases, or services needed for tasks.
